@@ -1,6 +1,7 @@
 {
     "PATH_ORIGINAL_DATA": "data/original_dataset",
-    "PATH_PARQUET_DATA": "data/parquet_dataset",
+    "PATH_SILVER_PARQUET_DATA": "data/silver_parquet_dataset",
+    "PATH_GOLD_PARQUET_DATA": "data/gold_parquet_dataset",
     "PATH_MAPPER_DATA": "data/mapper_dataset",
     "PATH_OTHER_DATA": "data/other_dataset",
     "PATH_TESTING_DATA": "testing_data",
