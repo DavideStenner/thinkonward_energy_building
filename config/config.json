@@ -13,5 +13,6 @@
     "TEST_FEATURE_FILE_NAME": "test_data.parquet", 
     "TRAIN_LABEL_FILE_NAME": "train_label.parquet", 
     "N_FOLD": 5,
-    "LOG_FOLDER": "log"
+    "LOG_FOLDER": "log",
+    "BUILDING_ID": "bldg_id"
 }

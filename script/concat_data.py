@@ -3,30 +3,45 @@ import sys
 sys.path.append(os.getcwd())
 
 if __name__ == '__main__':
+    import json
     import polars as pl
+    
+    from typing import Dict
+    from src.utils.dtype import get_mapper_categorical, remap_category
     from src.utils.import_utils import import_config
     from src.utils.logging_utils import get_logger
-    
+            
+    mapper_dataset: Dict[str, Dict[str, int]] = {}
     logger = get_logger(file_name='concat_data.log')
 
     config_dict = import_config()
 
     #import and save label file
     logger.info('importing and saving label file')
-    train_label = pl.read_parquet(
+    train_label = pl.scan_parquet(
         os.path.join(
             config_dict['PATH_ORIGINAL_DATA'],
             config_dict['ORIGINAL_TRAIN_LABEL_FOLDER'],
             config_dict['TRAIN_LABEL_FILE_NAME']
         )
     )
-    logger.info(f'label file has {train_label.shape[0]} rows and {train_label.shape[0]} cols')
-    train_label.write_parquet(
+    num_rows = train_label.select(pl.len()).collect().item()
+    num_cols = len(train_label.collect_schema().names())
+
+    logger.info(f'label file has {num_rows} rows and {num_cols} cols\n\n')
+    
+    train_label, mapper_train_label = get_mapper_categorical(
+        config_dict=config_dict, data=train_label, logger=logger
+    )
+    mapper_dataset['train_label'] = mapper_train_label
+    
+    train_label.sink_parquet(
         os.path.join(
             config_dict['PATH_SILVER_PARQUET_DATA'],
             config_dict['TRAIN_LABEL_FILE_NAME']
         )
     )
+    #begin train test feature
     for dataset_label, path_folder in [
         ['train', config_dict['ORIGINAL_TRAIN_CHUNK_FOLDER']],
         ['test', config_dict['ORIGINAL_TEST_CHUNK_FOLDER']]
@@ -55,6 +70,16 @@ if __name__ == '__main__':
         
         logger.info(f'{dataset_label} file has {num_rows} rows and {num_cols} cols')
 
+        if dataset_label == 'train':
+            data, mapper_data = get_mapper_categorical(
+                config_dict=config_dict, data=data, logger=logger
+            )
+            mapper_dataset[f'{dataset_label}_data'] = mapper_data
+        else:
+            data = remap_category(
+                data=data, mapper_mask_col=mapper_data
+            )
+            
         logger.info(f'Starting sinking {dataset_label} dataset')
         data.sink_parquet(
             os.path.join(
@@ -62,3 +87,12 @@ if __name__ == '__main__':
                 config_dict[f'{dataset_label.upper()}_FEATURE_FILE_NAME']
             )
         )
+
+    #saving mapper
+    with open(
+        os.path.join(
+            config_dict['PATH_MAPPER_DATA'], 'mapper_category.json'
+        ), 'w'            
+    ) as file_dtype:
+        
+        json.dump(mapper_dataset, file_dtype)
