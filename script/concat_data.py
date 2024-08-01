@@ -18,11 +18,13 @@ if __name__ == '__main__':
 
     #import and save label file
     logger.info('importing and saving label file')
-    train_label = pl.scan_parquet(
-        os.path.join(
-            config_dict['PATH_ORIGINAL_DATA'],
-            config_dict['ORIGINAL_TRAIN_LABEL_FOLDER'],
-            config_dict['TRAIN_LABEL_FILE_NAME']
+    train_label = (
+        pl.scan_parquet(
+            os.path.join(
+                config_dict['PATH_ORIGINAL_DATA'],
+                config_dict['ORIGINAL_TRAIN_LABEL_FOLDER'],
+                config_dict['TRAIN_LABEL_FILE_NAME']
+            )
         )
     )
     num_rows = train_label.select(pl.len()).collect().item()
@@ -51,19 +53,22 @@ if __name__ == '__main__':
             config_dict['PATH_ORIGINAL_DATA'],
             path_folder
         )
+
         data = pl.concat(
             [
+            (
                 pl.scan_parquet(
                     os.path.join(dataset_chunk_folder, file_name),
-                    hive_schema={
-                        'timestamp': pl.Datetime('ns'),
-                        'out.electricity.total.energy_consumption': pl.Float64,
-                        'in.state': pl.Object,
-                        'bldg_id': pl.Int64
-                    }
                 )
-                for file_name in os.listdir(dataset_chunk_folder)
-            ]
+                .with_columns(
+                    pl.col('timestamp').cast(pl.Datetime),
+                    pl.col('out.electricity.total.energy_consumption').cast(pl.Float64),
+                    pl.col('in.state').cast(pl.Utf8),
+                    pl.col('bldg_id').cast(pl.Int64)
+                )
+            )
+            for file_name in os.listdir(dataset_chunk_folder)
+        ]
         )
         num_rows = data.select(pl.len()).collect().item()
         num_cols = len(data.collect_schema().names())
