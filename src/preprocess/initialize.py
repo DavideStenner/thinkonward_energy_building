@@ -1,6 +1,8 @@
+import os
+import json
 import logging
 import polars as pl
-from typing import Any, Union
+from typing import Any, Union, Dict
 
 from src.utils.logging_utils import get_logger
 from src.base.preprocess.initialize import BaseInit
@@ -21,7 +23,14 @@ class PreprocessInit(BaseInit):
     
     def _initialize_col_list(self):
         self.build_id: str = self.config_dict['BUILDING_ID']
-    
+        with open(
+            os.path.join(
+                self.config_dict['PATH_MAPPER_DATA'], 
+                'mapper_category.json'
+            ), 'r'            
+        ) as file_dtype:
+            self.commercial_index = json.load(file_dtype)['train_label']['building_stock_type']['commercial']
+        
         self.target_col_binary: str = 'building_stock_type'
         self.target_col_com_list: list[str] = [
             'in.comstock_building_type_group_com', 'in.heating_fuel_com',
