@@ -96,16 +96,28 @@ def iterative_stratification(
 
     return fold_mapper
 
-class PreprocessFoldCreator(BaseCVFold, PreprocessInit):        
-    def create_fold(self, target_col_list: list[str]):        
-        data_for_split = self.label_data.select(target_col_list).to_dummies().to_numpy()        
-        build_id = self.label_data.select(self.build_id).to_numpy().reshape((-1))
+    def __create_multilabel_fold(self, target_col_list: list[str], target: pl.LazyFrame) -> pl.LazyFrame:
+        data_for_split = target.select(target_col_list).collect().to_dummies().to_numpy()        
+        build_id = target.select(self.build_id).collect().to_numpy().reshape((-1))
         
         fold_mapper = iterative_stratification(
-            data=data_for_split, build_id=build_id, num_fold=self.n_folds
+            target_data=data_for_split, build_id=build_id, n_folds=self.n_folds
         )
-        self.label_data = (
-            self.label_data
+        target_data = self.__create_fold_from_mapper(
+            target.select(
+                [self.build_id] + target_col_list 
+            ), 
+            fold_mapper
+        )
+        return target_data
+    
+    def __create_fold_from_mapper(
+            self, 
+            data: pl.LazyFrame, fold_mapper: Dict[int, int]
+        ) -> pl.LazyFrame:
+        data = (
+            data
+            .clone()
             .with_columns(
                 pl.col(self.build_id).replace(fold_mapper).alias('fold').cast(pl.UInt8)
             )
@@ -133,3 +145,7 @@ class PreprocessFoldCreator(BaseCVFold, PreprocessInit):
             )
             .drop(['fold'] + [f'fold_{x}' for x in range(self.n_folds)])
         )
+        return data
+    
+    def create_fold(self) -> None:
+        pass
