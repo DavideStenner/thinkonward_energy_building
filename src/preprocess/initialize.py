@@ -20,7 +20,31 @@ class PreprocessInit(BaseInit):
     def _initialize_preprocess_logger(self) -> None:
         self.preprocess_logger: logging.Logger = get_logger('preprocess.txt')
     
-    def _initialize_col_list(self):
+    def _initialize_dict_mapper(self) -> None:
+        self.month_season_mapping: Dict[int, int] = {
+            #cold
+            1: 0, 2: 0, 12: 0, 
+            #hot
+            6: 1, 7: 1, 8: 1,
+            #mild
+            3: 2, 4: 2, 5: 2,
+            9: 2, 10: 2, 11: 2
+        }
+        #https://co.my.xcelenergy.com/s/billing-payment/residential-rates/time-of-use-pricing
+        self.slice_hour_mapping: Dict[int, int] = {
+            #off peak
+            0: 0, 1: 0, 2:0, 3: 0, 4:0, 5: 0, 6: 0, 7: 0, 
+            8: 0, 9: 0, 10: 0, 11: 0, 12: 0,
+            20: 0, 21: 0, 22: 0, 23: 0,
+            #mid peak
+            13: 1, 14: 1, 15: 1,
+            #on peak
+            16: 2, 17: 2, 18: 2, 19: 2,
+        }
+        
+        self.tou_unique: list[int] = list(set(self.slice_hour_mapping.values()))
+
+    def _initialize_col_list(self) -> None:
         self.build_id: str = self.config_dict['BUILDING_ID']
         with open(
             os.path.join(
