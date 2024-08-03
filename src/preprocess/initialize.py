@@ -91,6 +91,9 @@ class PreprocessInit(BaseInit):
         self.label_data: Union[pl.LazyFrame, pl.DataFrame]
         self.data: Union[pl.LazyFrame, pl.DataFrame]
         
+    def _get_col_name(self, data: Union[pl.DataFrame, pl.LazyFrame]) -> list[str]:
+        return data.collect_schema().names()
+    
     def _collect_item_utils(self, data: Union[pl.DataFrame, pl.LazyFrame]) -> Any:
         if isinstance(data, pl.LazyFrame):
             return data.collect().item()
