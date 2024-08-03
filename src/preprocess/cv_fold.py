@@ -3,7 +3,7 @@ import numpy as np
 import polars as pl
 
 from typing import Dict
-
+from sklearn.model_selection import StratifiedKFold
 from src.base.preprocess.cv_fold import BaseCVFold
 from src.preprocess.initialize import PreprocessInit
 
@@ -95,6 +95,32 @@ def iterative_stratification(
         )
 
     return fold_mapper
+
+class PreprocessFoldCreator(BaseCVFold, PreprocessInit):   
+    def __create_binary_fold(self) -> pl.LazyFrame:
+        splitter_ = StratifiedKFold(self.n_folds, shuffle=True)
+        data_binary = (
+            self.label_data.select(self.build_id, self.target_col_binary)
+            .collect()
+            .to_pandas()
+        )
+
+        fold_iterator = enumerate(splitter_.split(data_binary, data_binary[self.target_col_binary]))
+        fold_mapper: Dict[int, int] = {}
+        
+        for fold_, (_, test_index) in fold_iterator:
+            fold_mapper.update(
+                {
+                    build_id: fold_
+                    for build_id in data_binary.loc[test_index, self.build_id].tolist()
+                }
+            )
+        target_data = self.__create_fold_from_mapper(
+            self.label_data.clone().select(
+                [self.build_id, self.target_col_binary] 
+            ), fold_mapper
+        )
+        return target_data
 
     def __create_multilabel_fold(self, target_col_list: list[str], target: pl.LazyFrame) -> pl.LazyFrame:
         data_for_split = target.select(target_col_list).collect().to_dummies().to_numpy()        
