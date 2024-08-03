@@ -12,14 +12,14 @@ class PreprocessImport(BaseImport, PreprocessInit):
         )
         self.base_data: pl.LazyFrame = pl.scan_parquet(
             os.path.join(
-                self.config_dict['PATH_ORIGINAL_DATA'],
+                self.config_dict['PATH_SILVER_PARQUET_DATA'],
                 f'{stage_file}_data.parquet'
             )
         )
         if not self.inference:
             self.label_data: pl.LazyFrame = pl.scan_parquet(
             os.path.join(
-                self.config_dict['PATH_ORIGINAL_DATA'],
+                self.config_dict['PATH_SILVER_PARQUET_DATA'],
                 f'train_data_label.parquet'
             )
         )
