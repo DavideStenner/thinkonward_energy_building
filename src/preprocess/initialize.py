@@ -17,8 +17,7 @@ class PreprocessInit(BaseInit):
         self.inference: bool = False
         self._initialize_empty_dataset()       
         self._initialize_col_list()
-    
-    def _initialize_preprocess_logger(self):
+    def _initialize_preprocess_logger(self) -> None:
         self.preprocess_logger: logging.Logger = get_logger('preprocess.txt')
     
     def _initialize_col_list(self):
@@ -54,7 +53,7 @@ class PreprocessInit(BaseInit):
             self.target_col_com_list +
             self.target_col_res_list
         )
-    def _initialize_empty_dataset(self):
+    def _initialize_empty_dataset(self) -> None:
         self.base_data: Union[pl.LazyFrame, pl.DataFrame]
         self.label_data: Union[pl.LazyFrame, pl.DataFrame]
         self.data: Union[pl.LazyFrame, pl.DataFrame]
