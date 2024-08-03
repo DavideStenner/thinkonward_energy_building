@@ -28,12 +28,15 @@ class PreprocessPipeline(BasePipeline, PreprocessImport, PreprocessAddFeature, P
                 'train_data.parquet'
             )
         )
-        # self.label_data.write_parquet(
-        #     os.path.join(
-        #         self.config_dict['PATH_GOLD_PARQUET_DATA'],
-        #         'train_label.parquet'
-        #     )
-        # )
+        for name_file, lazy_frame in self.dict_target.items():
+            self.preprocess_logger.info(f'saving {name_file}')
+            lazy_frame.collect().write_parquet(
+                os.path.join(
+                    self.config_dict['PATH_GOLD_PARQUET_DATA'],
+                    f'{name_file}.parquet'
+                )
+            )
+            
     def collect_feature(self) -> None:
         self.base_data: pl.DataFrame = self.base_data.collect()
         
@@ -82,9 +85,8 @@ class PreprocessPipeline(BasePipeline, PreprocessImport, PreprocessAddFeature, P
         _ = gc.collect()
         
         self.preprocess_logger.info('Creating fold_info column ...')
-        # self.create_fold()
+        self.create_fold()
         
-        # self.label_data: pl.DataFrame = self.label_data.collect()
         self.save_data()
                 
     def begin_training(self) -> None:
