@@ -20,7 +20,7 @@ class PreprocessImport(BaseImport, PreprocessInit):
             self.label_data: pl.LazyFrame = pl.scan_parquet(
             os.path.join(
                 self.config_dict['PATH_SILVER_PARQUET_DATA'],
-                f'train_data_label.parquet'
+                f'train_label.parquet'
             )
         )
         
