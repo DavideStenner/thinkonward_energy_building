@@ -114,3 +114,56 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
         )
         return all_hour_consumption
 
+    def __create_daily_aggregation(self) -> pl.LazyFrame:
+        all_daily_consumption = (
+            self.base_data
+            .group_by(
+                'bldg_id',
+                pl.col('timestamp').dt.truncate('1d')
+            )
+            .agg(
+                pl.col('energy_consumption').sum().alias('daily_consumption')
+            )
+            .with_columns(
+                pl.col('timestamp').dt.month().alias('month'),
+                (
+                    pl.col('timestamp').dt.month()
+                    .replace(self.month_season_mapping).alias('season')
+                ),
+                pl.col('timestamp').dt.week().alias('weeknum')
+            )
+            .group_by(
+                'bldg_id',
+            )
+            .agg(
+                [
+                    (
+                        pl.col('daily_consumption')
+                        .filter(pl.col('season')==season)
+                        .mean()
+                        .alias(f'average_daily_consumption_season_{season}')
+                    )
+                    for season in range(3)
+                ] +
+                [
+                    (
+                        pl.col('daily_consumption')
+                        .filter(pl.col('month')==month)
+                        .mean()
+                        .alias(f'average_daily_consumption_month_{month}')
+                    )
+                    for month in range(1, 12+1)
+                ] +
+                [
+                    (
+                        pl.col('daily_consumption')
+                        .filter(pl.col('weeknum')==week)
+                        .mean()
+                        .alias(f'average_daily_consumption_week_{week}')
+                    )
+                    for week in range(1, 53)
+                ]
+            )
+        )
+        return all_daily_consumption
+    
