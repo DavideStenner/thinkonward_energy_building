@@ -6,6 +6,7 @@ if __name__ == '__main__':
     import json
     import polars as pl
     
+    from tqdm import tqdm
     from typing import Dict
     from src.utils.dtype import get_mapper_categorical, remap_category
     from src.utils.import_utils import import_config
@@ -56,23 +57,40 @@ if __name__ == '__main__':
 
         data = pl.concat(
             [
-            (
-                pl.scan_parquet(
-                    os.path.join(dataset_chunk_folder, file_name),
+                (
+                    pl.scan_parquet(
+                        os.path.join(dataset_chunk_folder, file_name),
+                    )
+                    .with_columns(
+                        pl.col('timestamp').cast(pl.Datetime),
+                        pl.col('out.electricity.total.energy_consumption').cast(pl.Float64),
+                        pl.col('in.state').cast(pl.Utf8),
+                        pl.col('bldg_id').cast(pl.Int64)
+                    )
+                    .with_columns(
+                        pl.col('timestamp').dt.offset_by('-15m')
+                    )
+                    .group_by(
+                        'bldg_id', 'in.state', 
+                        pl.col('timestamp').dt.truncate('1h')
+                    )
+                    .agg(
+                        pl.col('out.electricity.total.energy_consumption').sum()
+                    )
+                    .collect()
                 )
-                .with_columns(
-                    pl.col('timestamp').cast(pl.Datetime),
-                    pl.col('out.electricity.total.energy_consumption').cast(pl.Float64),
-                    pl.col('in.state').cast(pl.Utf8),
-                    pl.col('bldg_id').cast(pl.Int64)
-                )
-            )
-            for file_name in os.listdir(dataset_chunk_folder)
-        ]
+                for file_name in tqdm(os.listdir(dataset_chunk_folder))
+            ]
         )
-        num_rows = data.select(pl.len()).collect().item()
+        num_rows = data.select(pl.len())
         num_cols = len(data.collect_schema().names())
         
+        num_rows = (
+            num_rows.collect().item()
+            if isinstance(num_rows, pl.LazyFrame)
+            else num_rows.item()
+        )
+
         logger.info(f'{dataset_label} file has {num_rows} rows and {num_cols} cols')
 
         if dataset_label == 'train':
@@ -85,8 +103,8 @@ if __name__ == '__main__':
                 data=data, mapper_mask_col=mapper_data
             )
             
-        logger.info(f'Starting sinking {dataset_label} dataset')
-        data.sink_parquet(
+        logger.info(f'Starting saving {dataset_label} dataset')
+        data.write_parquet(
             os.path.join(
                 config_dict['PATH_SILVER_PARQUET_DATA'],
                 config_dict[f'{dataset_label.upper()}_FEATURE_FILE_NAME']
