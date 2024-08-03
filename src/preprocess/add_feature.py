@@ -66,7 +66,7 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
                 ]
             )
         )
-        all_tou_consumption
+        return all_tou_consumption
 
     def __create_hour_aggregation(self) -> pl.LazyFrame:
         all_hour_consumption = (
