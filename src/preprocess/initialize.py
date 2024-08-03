@@ -15,8 +15,17 @@ class PreprocessInit(BaseInit):
         self.n_folds: int = self.config_dict['N_FOLD']
 
         self.inference: bool = False
+        self._initialize_all()
+        
+    def _initialize_all(self) -> None:
         self._initialize_empty_dataset()       
         self._initialize_col_list()
+        self._initialize_dict_mapper()
+        self._initialize_utils()
+
+    def _initialize_utils(self) -> None:
+        self.lazy_feature_list: list[pl.LazyFrame] = []
+        
     def _initialize_preprocess_logger(self) -> None:
         self.preprocess_logger: logging.Logger = get_logger('preprocess.txt')
     
