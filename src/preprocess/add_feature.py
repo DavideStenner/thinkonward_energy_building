@@ -167,3 +167,27 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
         )
         return all_daily_consumption
     
+        
+    def create_feature(self) -> None:   
+        self.lazy_feature_list.append(
+            self.__create_daily_aggregation()
+        )
+        self.lazy_feature_list.append(
+            self.__create_hour_aggregation()
+        )
+        self.lazy_feature_list.append(
+            self.__create_slice_hour_aggregation()
+        )
+            
+    def merge_all(self) -> None:
+        self.data = self.base_data.select(self.build_id, 'state').unique()
+
+        for lazy_feature_dataframe in self.lazy_feature_list:
+            self.data = (
+                self.data
+                .join(
+                    lazy_feature_dataframe, 
+                    on=self.build_id, how='left'
+                )
+            )
+
