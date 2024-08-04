@@ -112,6 +112,7 @@ class XgbTrainer(ModelTrain, XgbInit):
         #commercial metric
         self.params_xgb['objective'] = self.params_xgb['objective_commercial']
         self.params_xgb['metric'] = self.params_xgb['metric_commercial']
+        self.params_xgb['multi_strategy'] = "multi_output_tree"
 
         progress = {}
 
@@ -125,8 +126,7 @@ class XgbTrainer(ModelTrain, XgbInit):
             dtrain=train_matrix, 
             num_boost_round=self.params_xgb['num_boost_round'],
             evals=[(test_matrix, 'valid')],
-            evals_result=progress, verbose_eval=self.log_evaluation,
-            custom_metric=partial(xgb_eval_gini_stability, test_metric_df)
+            evals_result=progress, verbose_eval=self.log_evaluation
         )
         model.save_model(
             os.path.join(
@@ -167,7 +167,6 @@ class XgbTrainer(ModelTrain, XgbInit):
             num_boost_round=self.params_xgb['num_boost_round'],
             evals=[(test_matrix, 'valid')],
             evals_result=progress, verbose_eval=self.log_evaluation,
-            custom_metric=partial(xgb_eval_gini_stability, test_metric_df)
         )
         model.save_model(
             os.path.join(
@@ -246,8 +245,8 @@ class XgbTrainer(ModelTrain, XgbInit):
             self.training_logger.info('Collecting dataset')
             
             self.train_binary(fold_=fold_)
-            # self.train_commercial(fold_=fold_)
-            # self.train_residential(fold_=fold_)
+            self.train_commercial(fold_=fold_)
+            self.train_residential(fold_=fold_)
 
     def save_model(self)->None:
         for type_model in self.model_used:
