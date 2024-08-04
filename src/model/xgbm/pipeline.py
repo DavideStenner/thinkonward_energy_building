@@ -41,4 +41,4 @@ class XgbPipeline(ModelPipeline, XgbTrainer, XgbExplainer, XgbInference):
         self.create_experiment_structure()
         self.initialize_logger()
         self.run_train()
-        # self.explain_model()
+        self.explain_model()
