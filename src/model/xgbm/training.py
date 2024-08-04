@@ -188,9 +188,21 @@ class XgbTrainer(ModelTrain, XgbInit):
         _ = gc.collect()
     
     def get_dataset(self, fold_: int, current_model: str) -> Tuple[xgb.DMatrix]:
-        target_name: list[str] | str = self.config_dict['TARGET_DICT'][current_model.upper()]
-        
         fold_data = self.access_fold(fold_=fold_, current_model=current_model)
+        
+        target_info: list[str] | str = self.config_dict['TARGET_DICT'][current_model.upper()]
+        if isinstance(target_info, list):
+            target_list = [
+                col for col in fold_data.collect_schema().names()
+                if any(
+                    [
+                        target_name in col
+                        for target_name in target_info
+                    ]
+                )
+            ]
+        else:
+            target_list = [target_info]
             
         train_filtered = fold_data.filter(
             (pl.col('current_fold') == 't')
@@ -210,17 +222,17 @@ class XgbTrainer(ModelTrain, XgbInit):
         train_rows = train_filtered.select(pl.count()).collect().item()
         test_rows = test_filtered.select(pl.count()).collect().item()
         
-        self.training_logger.info(f'{train_rows} train rows; {test_rows} test rows; {len(self.feature_list)} feature')
+        self.training_logger.info(f'{train_rows} train rows; {test_rows} test rows; {len(self.feature_list)} feature; {len(target_list)} target')
         
         train_matrix = xgb.DMatrix(
             train_filtered.select(self.feature_list).collect().to_pandas().to_numpy('float32'),
-            train_filtered.select(target_name).collect().to_pandas().to_numpy('float32').reshape((-1)),
+            train_filtered.select(target_list).collect().to_pandas().to_numpy('float32').reshape((-1)),
             feature_names=self.feature_list, enable_categorical=True, feature_types=self.feature_types_list
         )
         
         test_matrix = xgb.DMatrix(
             test_filtered.select(self.feature_list).collect().to_pandas().to_numpy('float32'),
-            test_filtered.select(target_name).collect().to_pandas().to_numpy('float32').reshape((-1)),
+            test_filtered.select(target_list).collect().to_pandas().to_numpy('float32').reshape((-1)),
             feature_names=self.feature_list, enable_categorical=True, feature_types=self.feature_types_list
         )
         return train_matrix, test_matrix
