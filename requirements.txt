@@ -11,3 +11,4 @@ seaborn
 shap
 ipywidgets
 xgboost
+openpyxl
