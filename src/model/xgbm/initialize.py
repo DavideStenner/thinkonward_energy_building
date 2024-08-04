@@ -162,7 +162,7 @@ class XgbInit(ModelInit):
                 for type_model in self.model_used
             },
             'model_list': {
-                type_model: f'xgb_{type_model}' + '_{fold_}.txt'
+                type_model: f'xgb_{type_model}' + '_{fold_}.json'
                 for type_model in self.model_used
             }
         }
