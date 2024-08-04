@@ -30,10 +30,28 @@ class PreprocessPipeline(BasePipeline, PreprocessImport, PreprocessAddFeature, P
         )
         for name_file, lazy_frame in self.dict_target.items():
             self.preprocess_logger.info(f'saving {name_file}')
-            lazy_frame.collect().write_parquet(
+            #make dummy
+            dataset = (
+                (
+                    lazy_frame
+                    .collect()
+                    .to_dummies(
+                        [
+                            col for col in lazy_frame.collect_schema().names()
+                            if col not in [self.build_id, 'fold_info']
+                        ]
+                    )
+                ) if name_file != 'train_binary_label'
+                else lazy_frame.collect()
+            )
+
+            (
+                dataset
+                .write_parquet(
                 os.path.join(
-                    self.config_dict['PATH_GOLD_PARQUET_DATA'],
-                    f'{name_file}.parquet'
+                        self.config_dict['PATH_GOLD_PARQUET_DATA'],
+                        f'{name_file}.parquet'
+                    )
                 )
             )
             
