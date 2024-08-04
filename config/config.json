@@ -14,5 +14,26 @@
     "TRAIN_LABEL_FILE_NAME": "train_label.parquet", 
     "N_FOLD": 5,
     "LOG_FOLDER": "log",
-    "BUILDING_ID": "bldg_id"
+    "BUILDING_ID": "bldg_id",
+    "SPECIAL_COLUMNS": ["bldg_id"],
+    "TARGET_DICT": {
+        "BINARY": "building_stock_type",
+        "COMMERCIAL": [
+            "in.comstock_building_type_group_com", "in.heating_fuel_com",
+            "in.hvac_category_com", "in.number_of_stories_com",
+            "in.ownership_type_com", "in.vintage_com",
+            "in.wall_construction_type_com", "in.tstat_clg_sp_f..f_com",
+            "in.tstat_htg_sp_f..f_com", "in.weekday_opening_time..hr_com",
+            "in.weekday_operating_hours..hr_com"
+        ],
+        "RESIDENTIAL": [
+            "in.bedrooms_res", "in.cooling_setpoint_res",
+            "in.heating_setpoint_res", "in.geometry_building_type_recs_res",
+            "in.geometry_floor_area_res", "in.geometry_foundation_type_res",
+            "in.geometry_wall_type_res", "in.heating_fuel_res",
+            "in.income_res", "in.roof_material_res",
+            "in.tenure_res", "in.vacancy_status_res",
+            "in.vintage_res"
+        ]
+    }
 }
