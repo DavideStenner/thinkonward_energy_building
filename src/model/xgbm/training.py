@@ -1,14 +1,16 @@
 import os
 import gc
+import numpy as np
 import polars as pl
 import xgboost as xgb
 
 from functools import partial
-from typing import Tuple
+from typing import Tuple, Dict
 
 from src.base.model.training import ModelTrain
 from src.model.xgbm.initialize import XgbInit
- 
+from src.model.metric.official_metric import xgb_eval_f1_hierarchical_macro
+
 class XgbTrainer(ModelTrain, XgbInit):
     def _init_train(self) -> None:
         data = pl.scan_parquet(
@@ -110,7 +112,8 @@ class XgbTrainer(ModelTrain, XgbInit):
         
         #commercial metric
         params_xgb = self.params_xgb['commercial']
-
+        target_mapping: Dict[str, np.ndarray] = self.get_dummy_target_mapping('commercial')
+        
         progress = {}
 
         train_matrix, test_matrix = self.get_dataset(fold_=fold_, current_model='commercial')
@@ -123,7 +126,8 @@ class XgbTrainer(ModelTrain, XgbInit):
             dtrain=train_matrix, 
             num_boost_round=params_xgb['num_boost_round'],
             evals=[(test_matrix, 'valid')],
-            evals_result=progress, verbose_eval=10
+            evals_result=progress, verbose_eval=1,
+            custom_metric=partial(xgb_eval_f1_hierarchical_macro, target_mapping)
         )
         model.save_model(
             os.path.join(
@@ -147,6 +151,7 @@ class XgbTrainer(ModelTrain, XgbInit):
         
         #residential metric
         params_xgb = self.params_xgb['residential']
+        target_mapping: Dict[str, np.ndarray] = self.get_dummy_target_mapping('residential')
 
         progress = {}
 
@@ -160,7 +165,8 @@ class XgbTrainer(ModelTrain, XgbInit):
             dtrain=train_matrix, 
             num_boost_round=params_xgb['num_boost_round'],
             evals=[(test_matrix, 'valid')],
-            evals_result=progress, verbose_eval=10,
+            evals_result=progress, verbose_eval=1,
+            custom_metric=partial(xgb_eval_f1_hierarchical_macro, target_mapping)
         )
         model.save_model(
             os.path.join(
@@ -179,6 +185,44 @@ class XgbTrainer(ModelTrain, XgbInit):
         del train_matrix, test_matrix
         
         _ = gc.collect()
+    
+    def get_dummy_target_mapping(self, current_model: str) -> Dict[str, np.ndarray]:
+        assert current_model != 'binary'
+        
+        #original target colname
+        target_list: list[str] = self.config_dict['TARGET_DICT'][current_model.upper()]
+        
+        #dummy colname
+        model_dummy_colname: list[str] = (
+            pl.scan_parquet(
+                os.path.join(
+                    self.config_dict['PATH_GOLD_PARQUET_DATA'],
+                    f'train_{current_model}_label.parquet'
+                )
+            ).collect_schema().names()
+        )
+        #correct order of dummy target based on target list
+        target_dummy_list = [
+            col for col in model_dummy_colname
+            if any(
+                [
+                    target_name in col
+                    for target_name in target_list
+                ]
+            )
+        ]
+        #useful mapper
+        target_dict = {
+            target_base: np.where(
+                [
+                    target_base in col
+                    for col in target_dummy_list
+                ]
+            )[0]
+            for target_base in target_list
+        }
+
+        return target_dict
     
     def get_dataset(self, fold_: int, current_model: str) -> Tuple[xgb.DMatrix]:
         fold_data = self.access_fold(fold_=fold_, current_model=current_model)
