@@ -22,3 +22,17 @@ def xgb_eval_f1_hierarchical_macro(
 
     score_final = np.mean(f1_score_list)
     return 'f1', score_final
+
+def xgb_eval_f1_single_macro(
+        position_target: np.ndarray, name_target:str,
+        y_pred: np.ndarray, eval_data: xgb.DMatrix,
+    ) -> Tuple[str, float]:
+    
+    y_true = eval_data.get_label().reshape(y_pred.shape)
+    result = f1_score(
+        y_true=y_true[:, position_target].argmax(axis=1),
+        y_pred=y_pred[:, position_target].argmax(axis=1),
+        average='macro'
+    )
+
+    return name_target, result
