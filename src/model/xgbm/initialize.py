@@ -27,8 +27,8 @@ class XgbInit(ModelInit):
         self.model_used: list[str] = ['binary', 'commercial', 'residential']
         self.model_metric_used: list[str] = {
             'binary': {'label': 'auc', 'maximize': True},
-            'commercial': {'label': 'logloss', 'maximize': False},
-            'residential': {'label': 'logloss', 'maximize': False},
+            'commercial': {'label': 'f1', 'maximize': True},
+            'residential': {'label': 'f1', 'maximize': True},
         }
         self.experiment_path: str = os.path.join(
             config_dict['PATH_EXPERIMENT'],
