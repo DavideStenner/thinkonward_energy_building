@@ -86,7 +86,7 @@ class XgbTrainer(ModelTrain, XgbInit):
             dtrain=train_matrix, 
             num_boost_round=params_xgb['num_boost_round'],
             evals=[(test_matrix, 'valid')],
-            evals_result=progress, verbose_eval=self.log_evaluation
+            evals_result=progress, verbose_eval=50
         )
         model.save_model(
             os.path.join(
@@ -123,7 +123,7 @@ class XgbTrainer(ModelTrain, XgbInit):
             dtrain=train_matrix, 
             num_boost_round=params_xgb['num_boost_round'],
             evals=[(test_matrix, 'valid')],
-            evals_result=progress, verbose_eval=10#self.log_evaluation
+            evals_result=progress, verbose_eval=10
         )
         model.save_model(
             os.path.join(
@@ -160,7 +160,7 @@ class XgbTrainer(ModelTrain, XgbInit):
             dtrain=train_matrix, 
             num_boost_round=params_xgb['num_boost_round'],
             evals=[(test_matrix, 'valid')],
-            evals_result=progress, verbose_eval=10,#self.log_evaluation,
+            evals_result=progress, verbose_eval=10,
         )
         model.save_model(
             os.path.join(
@@ -238,7 +238,7 @@ class XgbTrainer(ModelTrain, XgbInit):
             self.training_logger.info(f'\n\nStarting fold {fold_}\n\n\n')
             self.training_logger.info('Collecting dataset')
             
-            self.train_binary(fold_=fold_)
+            # self.train_binary(fold_=fold_)
             self.train_commercial(fold_=fold_)
             self.train_residential(fold_=fold_)
 

@@ -12,14 +12,14 @@ class XgbPipeline(ModelPipeline, XgbTrainer, XgbExplainer, XgbInference):
             experiment_name:str, 
             params_xgb: dict[str, Any],
             config_dict: dict[str, Any], data_columns: Tuple[str],
-            log_evaluation:int =1, fold_name: str = 'fold_info', 
+            fold_name: str = 'fold_info', 
             evaluate_shap: bool=False
         ):
         XgbInit.__init__(
             self, experiment_name=experiment_name, params_xgb=params_xgb,
             config_dict=config_dict,
             data_columns=data_columns, 
-            log_evaluation=log_evaluation, fold_name=fold_name
+            fold_name=fold_name
         )
         self.evaluate_shap: bool = evaluate_shap
         
@@ -40,5 +40,5 @@ class XgbPipeline(ModelPipeline, XgbTrainer, XgbExplainer, XgbInference):
     def train_explain(self) -> None:
         self.create_experiment_structure()
         self.initialize_logger()
-        self.run_train()
+        # self.run_train()
         self.explain_model()

@@ -18,7 +18,7 @@ class XgbInit(ModelInit):
             experiment_name:str, 
             params_xgb: dict[str, Any],
             config_dict: dict[str, Any], data_columns: Tuple[str],
-            log_evaluation:int =1, fold_name: str = 'fold_info'
+            fold_name: str = 'fold_info'
         ):
         
         self.inference: bool = False
@@ -68,8 +68,6 @@ class XgbInit(ModelInit):
                 'fold_info', 'current_fold'
             ]
         )
-
-        self.log_evaluation: int = log_evaluation
 
         self.params_xgb: dict[str, Any] = params_xgb
         
