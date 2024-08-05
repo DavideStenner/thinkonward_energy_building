@@ -37,6 +37,6 @@ if __name__=='__main__':
             experiment_name=experiment_name + "_xgb",
             params_xgb=params_model,
             config_dict=config_dict, data_columns=preprocessor.feature_list,
-            log_evaluation=50, evaluate_shap=False,
+            evaluate_shap=False,
         )
         trainer.train_explain()
