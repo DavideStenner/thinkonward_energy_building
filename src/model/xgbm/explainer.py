@@ -59,7 +59,7 @@ class XgbExplainer(XgbInit):
         )
 
         progress_dict = {
-            'time': range(self.params_xgb['num_boost_round']),
+            'time': range(self.params_xgb[type_model]['num_boost_round']),
         }
 
         list_metric = progress_list[0]['valid'].keys()
@@ -135,7 +135,13 @@ class XgbExplainer(XgbInit):
         
     def get_feature_importance(self) -> None:
         for type_model in self.model_used:
-            self.__get_single_feature_importance(type_model=type_model)
+            if (
+                'multi_strategy' in self.params_xgb[type_model].keys()
+            ):
+                #not supported
+                pass
+            else:
+                self.__get_single_feature_importance(type_model=type_model)
     
     def __get_single_feature_importance(self, type_model: str) -> None:
         best_result = self.load_best_result(
