@@ -282,9 +282,14 @@ class XgbTrainer(ModelTrain, XgbInit):
             self.training_logger.info(f'\n\nStarting fold {fold_}\n\n\n')
             self.training_logger.info('Collecting dataset')
             
-            self.train_binary(fold_=fold_)
-            self.train_commercial(fold_=fold_)
-            self.train_residential(fold_=fold_)
+            if 'binary' in self.model_used:
+                self.train_binary(fold_=fold_)
+            
+            if 'commercial' in self.model_used:
+                self.train_commercial(fold_=fold_)
+            
+            if 'residential' in self.model_used:
+                self.train_residential(fold_=fold_)
 
     def save_model(self)->None:
         for type_model in self.model_used:
