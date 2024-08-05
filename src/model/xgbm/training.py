@@ -126,7 +126,7 @@ class XgbTrainer(ModelTrain, XgbInit):
             dtrain=train_matrix, 
             num_boost_round=params_xgb['num_boost_round'],
             evals=[(test_matrix, 'valid')],
-            evals_result=progress, verbose_eval=1,
+            evals_result=progress, verbose_eval=10,
             custom_metric=partial(xgb_eval_f1_hierarchical_macro, target_mapping)
         )
         model.save_model(
@@ -165,7 +165,7 @@ class XgbTrainer(ModelTrain, XgbInit):
             dtrain=train_matrix, 
             num_boost_round=params_xgb['num_boost_round'],
             evals=[(test_matrix, 'valid')],
-            evals_result=progress, verbose_eval=1,
+            evals_result=progress, verbose_eval=10,
             custom_metric=partial(xgb_eval_f1_hierarchical_macro, target_mapping)
         )
         model.save_model(
