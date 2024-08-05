@@ -238,7 +238,7 @@ class XgbTrainer(ModelTrain, XgbInit):
             self.training_logger.info(f'\n\nStarting fold {fold_}\n\n\n')
             self.training_logger.info('Collecting dataset')
             
-            # self.train_binary(fold_=fold_)
+            self.train_binary(fold_=fold_)
             self.train_commercial(fold_=fold_)
             self.train_residential(fold_=fold_)
 
