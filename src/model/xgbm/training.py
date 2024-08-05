@@ -262,14 +262,14 @@ class XgbTrainer(ModelTrain, XgbInit):
         self.training_logger.info(f'{train_rows} train rows; {test_rows} test rows; {len(self.feature_list)} feature; {len(target_list)} target')
         
         train_matrix = xgb.DMatrix(
-            train_filtered.select(self.feature_list).collect().to_pandas().to_numpy('float32'),
-            train_filtered.select(target_list).collect().to_pandas().to_numpy('float32').reshape((-1)),
+            train_filtered.select(self.feature_list).collect().to_pandas().to_numpy('float64'),
+            train_filtered.select(target_list).collect().to_pandas().to_numpy('float32'),
             feature_names=self.feature_list, enable_categorical=True, feature_types=self.feature_types_list
         )
         
         test_matrix = xgb.DMatrix(
-            test_filtered.select(self.feature_list).collect().to_pandas().to_numpy('float32'),
-            test_filtered.select(target_list).collect().to_pandas().to_numpy('float32').reshape((-1)),
+            test_filtered.select(self.feature_list).collect().to_pandas().to_numpy('float64'),
+            test_filtered.select(target_list).collect().to_pandas().to_numpy('float32'),
             feature_names=self.feature_list, enable_categorical=True, feature_types=self.feature_types_list
         )
         return train_matrix, test_matrix
