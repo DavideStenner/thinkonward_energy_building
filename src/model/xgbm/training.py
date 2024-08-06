@@ -16,13 +16,13 @@ class XgbTrainer(ModelTrain, XgbInit):
         data = pl.scan_parquet(
             os.path.join(
                 self.config_dict['PATH_GOLD_PARQUET_DATA'],
-                'train_data.parquet'
+                'train_binary.parquet'
             )
         )
         
         self.feature_list = [
             col for col in data.collect_schema().names()
-            if col not in self.useless_col_list
+            if col not in self.useless_col_list + [self.config_dict['TARGET_DICT']['BINARY']]
         ]
         self.categorical_col_list = [
             col for col in self.categorical_col_list
