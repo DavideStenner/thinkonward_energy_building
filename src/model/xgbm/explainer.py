@@ -194,7 +194,7 @@ class XgbExplainer(XgbInit):
             ),
             index=False
         )
-    def __get_multi_class_insight_by_target(self) -> None
+    def __get_multi_class_insight_by_target(self) -> None:
         for current_model in ['commercial', 'residential']:
             best_result = self.load_best_result(current_model)
             
