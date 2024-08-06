@@ -38,38 +38,20 @@ class XgbTrainer(ModelTrain, XgbInit):
     def access_fold(self, fold_: int, current_model: str) -> pl.LazyFrame:
         assert current_model in self.model_used
 
-        fold_data = pl.scan_parquet(
-            os.path.join(
-                self.config_dict['PATH_GOLD_PARQUET_DATA'],
-                f'train_{current_model}_label.parquet'
+        fold_data = (
+            pl.scan_parquet(
+                os.path.join(
+                    self.config_dict['PATH_GOLD_PARQUET_DATA'],
+                    f'train_{current_model}.parquet'
+                )
+            ).with_columns(
+                (
+                    pl.col('fold_info').str.split(', ')
+                    .list.get(fold_).alias('current_fold')
+                )
             )
         )
-        initial_rows = fold_data.select(pl.len()).collect().item()
-        
-        train_data = pl.scan_parquet(
-            os.path.join(
-                self.config_dict['PATH_GOLD_PARQUET_DATA'],
-                'train_data.parquet'
-            )
-        )
-
-        data = (
-            fold_data
-            .join(
-                train_data, 
-                on=self.build_id, how='inner'
-            )
-        )
-        
-        assert initial_rows == data.select(pl.len()).collect().item()
-        
-        data = data.with_columns(
-            (
-                pl.col('fold_info').str.split(', ')
-                .list.get(fold_).alias('current_fold')
-            )
-        )
-        return data
+        return fold_data
     
     def train_binary(self, fold_: int) -> None:
         
