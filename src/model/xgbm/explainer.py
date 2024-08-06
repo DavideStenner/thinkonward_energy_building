@@ -1,12 +1,14 @@
 import os
+import numpy as np
 import polars as pl
 import pandas as pd
 import seaborn as sns
 import xgboost as xgb
 import matplotlib.pyplot as plt
 
+from tqdm import tqdm
 from typing import Union, Tuple
-from sklearn.metrics import roc_auc_score, log_loss
+from sklearn.metrics import f1_score
 from src.model.xgbm.initialize import XgbInit
 
 class XgbExplainer(XgbInit):       
@@ -192,8 +194,143 @@ class XgbExplainer(XgbInit):
             ),
             index=False
         )
-    def get_oof_insight(self) -> None:
-        pass
+    def __get_multi_class_insight_by_target(self) -> None
+        for current_model in ['commercial', 'residential']:
+            best_result = self.load_best_result(current_model)
+            
+            #read data and pivot it for seaborn line
+            oof_data = (
+                pl.read_parquet(
+                    os.path.join(
+                        self.experiment_path_dict['training'].format(type=current_model),
+                        f'multi_class_by_target.parquet'
+                    )
+                )
+                .with_columns(
+                    (pl.lit('fold_') + pl.col('fold').cast(pl.Utf8)).alias('fold')
+                )
+                .pivot(
+                    'fold',
+                    index=['iteration', 'col_name'], 
+                    values='score',
+                )
+                .to_pandas()
+            )
+            #calculate average over each fold
+            oof_data["average"] = oof_data.loc[
+                :, [f'fold_{x}' for x in range(self.n_fold)]
+            ].mean(axis=1)
 
+            fig = plt.figure(figsize=(18,8))
+            sns.lineplot(
+                data=oof_data, 
+                x="iteration", y='average', hue='col_name'
+            )
+            plt.axvline(x=best_result['best_epoch'], color='blue', linestyle='--')
+
+            plt.title(f"Training plot curve of all metric")
+
+            fig.savefig(
+                os.path.join(
+                    self.experiment_path_dict['training'].format(type=current_model),
+                    f'all_target_training_curve.png'
+                )
+            )
+            plt.close(fig)
+
+    def __get_multi_class_score_by_target(self) -> None:
+        #get f1 score for each single target, for each round tree
+        model_information = {
+            type_model: {
+                'best_result': self.load_best_result(type_model),
+                'model_list': self.load_pickle_model_list(
+                    type_model=type_model
+                )
+            }
+            for type_model in ['commercial', 'residential']
+        }
+        self.load_used_feature()
+        self.load_params()
+        self.get_target_mapper()
+        
+        #iterate over each model
+        for current_model in ['commercial', 'residential']:
+            num_iteration_model: int = self.params_xgb[current_model]['num_boost_round']
+            current_model_information = model_information[current_model]
+            dummy_target_mapper = self.mapper_dummy_target[current_model]
+            f1_score_list: list = []
+
+            #iterate over each fold
+            for fold_ in tqdm(range(self.n_fold), total=self.n_fold):
+                fold_data = (
+                    pl.read_parquet(
+                        os.path.join(
+                            self.config_dict['PATH_GOLD_PARQUET_DATA'],
+                            f'train_{current_model}.parquet'
+                        )
+                    )
+                    .with_columns(
+                        (
+                            pl.col('fold_info').str.split(', ')
+                            .list.get(fold_).alias('current_fold')
+                        )
+                    )
+                    .filter(
+                        (pl.col('current_fold') == 'v')
+                    )
+                )
+                test_feature = (
+                    fold_data
+                    .select(self.feature_list)
+                    .to_pandas().to_numpy('float64')
+                )
+                
+                test_feature_matrix = xgb.DMatrix(
+                    test_feature,
+                    feature_names=self.feature_list
+                )
+                test_target = (
+                    fold_data
+                    .select(self.target_dict[current_model])
+                    .to_pandas().to_numpy('float64')
+                )
+                #iterate over each round of training
+                for iteration in range(num_iteration_model):
+                                                        
+                    prediction_: np.ndarray = (
+                        current_model_information['model_list'][fold_].predict(
+                            test_feature_matrix, 
+                            iteration_range=(0, iteration+1)
+                        )
+                    )
+                    #calculate f1 score and create list of list with fold, iteration, col name and score
+                    #used for pivot
+                    f1_score_list += [
+                        [
+                            fold_, iteration, col_name, 
+                            f1_score(
+                                y_true=test_target[:, position_target].argmax(axis=1),
+                                y_pred=prediction_[:, position_target].argmax(axis=1),
+                                average='macro'
+                            )
+                        ]
+                        for col_name, position_target in dummy_target_mapper.items()
+                    ]
+            (
+                pd.DataFrame(
+                    f1_score_list, columns=['fold', 'iteration', 'col_name', 'score']
+                )
+                .to_parquet(
+                    os.path.join(
+                        self.experiment_path_dict['training'].format(type=current_model),
+                        f'multi_class_by_target.parquet'
+                    ),
+                    index=False
+                )
+            )
+
+    def get_oof_insight(self) -> None:
+        self.__get_multi_class_insight_by_target()
+            
     def get_oof_prediction(self) -> None:
-        pass
+        self.__get_multi_class_score_by_target()
