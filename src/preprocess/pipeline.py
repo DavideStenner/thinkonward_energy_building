@@ -1,9 +1,11 @@
 import os
 import gc
+import json
 
+import numpy as np
 import polars as pl
 
-from typing import Any, Tuple
+from typing import Any, Tuple, Dict
 
 from src.base.preprocess.pipeline import BasePipeline
 from src.preprocess.import_data import PreprocessImport
@@ -20,33 +22,69 @@ class PreprocessPipeline(BasePipeline, PreprocessImport, PreprocessAddFeature, P
             config_dict=config_dict, 
         )
 
-    def save_data(self) -> None:
-        self.preprocess_logger.info('saving processed dataset')
-        self.data.write_parquet(
-            os.path.join(
-                self.config_dict['PATH_GOLD_PARQUET_DATA'],
-                'train_data.parquet'
+    def __get_dummy_target_mapping(
+            self, 
+            original_target_list: list[str], dummy_column_names: list[str]
+        ) -> Dict[str, np.ndarray]:
+                
+        #correct order of dummy target based on target list
+        target_dummy_list = [
+            col for col in dummy_column_names
+            if any(
+                [
+                    target_name in col
+                    for target_name in original_target_list
+                ]
             )
-        )
+        ]
+        #useful mapper
+        target_dict = {
+            target_base: np.where(
+                [
+                    target_base in col
+                    for col in target_dummy_list
+                ]
+            )[0].tolist()
+            for target_base in original_target_list
+        }
+
+        return target_dict
+
+    def save_data(self) -> None:       
+        self.preprocess_logger.info('saving every processed dataset + target')
+        mapper_dummy_target = {}
+        
+        #for each file join back to dataset and also save mapping of dummy to original feature
         for name_file, lazy_frame in self.dict_target.items():
-            self.preprocess_logger.info(f'saving {name_file}')
+
             #make dummy
-            dataset = (
-                (
+            if name_file != 'train_binary':
+                current_target: str = (
+                    name_file
+                    .split('train_')[1]
+                    .strip().upper()
+                )
+                dataset_label = (
                     lazy_frame
                     .collect()
-                    .to_dummies(
-                        [
-                            col for col in lazy_frame.collect_schema().names()
-                            if col not in [self.build_id, 'fold_info']
-                        ]
-                    )
-                ) if name_file != 'train_binary_label'
-                else lazy_frame.collect()
-            )
-
+                    .to_dummies(self.config_dict['TARGET_DICT'][current_target])
+                )
+                target_dict = self.__get_dummy_target_mapping(
+                    self.config_dict['TARGET_DICT'][current_target],
+                    dataset_label.collect_schema().names()
+                )
+                mapper_dummy_target[current_target.lower()] = target_dict
+                
+            else:
+                dataset_label = lazy_frame.collect()
+                
+            self.preprocess_logger.info(f'saving {name_file}')
             (
-                dataset
+                dataset_label
+                .join(
+                    self.data, 
+                    on=self.build_id, how='inner'
+                )
                 .write_parquet(
                 os.path.join(
                         self.config_dict['PATH_GOLD_PARQUET_DATA'],
@@ -54,6 +92,15 @@ class PreprocessPipeline(BasePipeline, PreprocessImport, PreprocessAddFeature, P
                     )
                 )
             )
+        
+        self.preprocess_logger.info(f'saving target mapper')
+        with open(
+            os.path.join(
+                self.config_dict['PATH_MAPPER_DATA'],
+                'target_mapper.json'
+            ), 'w'
+        ) as file_json:
+            json.dump(mapper_dummy_target, file_json)
             
     def collect_feature(self) -> None:
         self.base_data: pl.DataFrame = self.base_data.collect()

@@ -100,7 +100,17 @@ class XgbInit(ModelInit):
             ), 'r'            
         ) as file_dtype:
             self.commercial_index = json.load(file_dtype)['train_label']['building_stock_type']['commercial']
-                
+        
+        #target mapper for residential/commercial
+        with open(
+            os.path.join(
+                self.config_dict['PATH_MAPPER_DATA'],
+                'target_mapper.json'
+            ), 'r'
+        ) as file_json:
+            self.target_mapper: Dict[str, list[int]] = json.load(file_json)
+        
+        
     def initialize_model_utils(self) -> None:
         self.build_id: str = 'bldg_id'
         

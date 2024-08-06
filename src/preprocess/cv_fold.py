@@ -176,8 +176,8 @@ class PreprocessFoldCreator(BaseCVFold, PreprocessInit):
     def create_fold(self) -> None:
         
         self.dict_target: Dict[str, pl.LazyFrame] = {
-            'train_binary_label': self.__create_binary_fold(),
-            'train_commercial_label': (
+            'train_binary': self.__create_binary_fold(),
+            'train_commercial': (
                 self.__create_multilabel_fold(
                     target_col_list=self.target_col_com_list,
                     target=(
@@ -186,7 +186,7 @@ class PreprocessFoldCreator(BaseCVFold, PreprocessInit):
                     )
                 )
             ),
-            'train_residential_label': (
+            'train_residential': (
                 self.__create_multilabel_fold(
                     target_col_list=self.target_col_res_list,
                     target=(
