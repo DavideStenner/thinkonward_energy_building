@@ -76,7 +76,48 @@ class XgbInit(ModelInit):
         self.get_categorical_columns(data_columns=data_columns)
         self.initialize_model_utils()
         self.get_model_file_name_dict()
+        self.get_target_mapper()
+        self.get_target_col_list()
+        
+    def get_target_col_list(self) -> None:
+        self.target_dict: Dict[str, list[str]] = {}
+        
+        for current_model in self.model_used:
+            target_info: list[str] | str = self.config_dict['TARGET_DICT'][current_model.upper()]
+            
+            current_model_columns_list: pl.LazyFrame = (
+                pl.scan_parquet(
+                    os.path.join(
+                        self.config_dict['PATH_GOLD_PARQUET_DATA'],
+                        f'train_{current_model}.parquet'
+                    )
+                )
+                .collect_schema().names()
+            )
+            if isinstance(target_info, list):
+                target_list = [
+                    col for col in current_model_columns_list
+                    if any(
+                        [
+                            target_name in col
+                            for target_name in target_info
+                        ]
+                    )
+                ]
+            else:
+                target_list = [target_info]
+        
+            self.target_dict[current_model] = target_list
     
+    def get_target_mapper(self) -> None:
+        with open(
+            os.path.join(
+                self.config_dict['PATH_MAPPER_DATA'],
+                'target_mapper.json'
+            ), 'r'
+        ) as file_json:
+            self.mapper_dummy_target: Dict[str, Dict[str, list[int]]] = json.load(file_json)
+            
     def get_model_info(self) -> None:
         self.feature_types_list: list[str] = [
             (
