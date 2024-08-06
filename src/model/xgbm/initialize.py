@@ -75,6 +75,7 @@ class XgbInit(ModelInit):
         
         self.get_categorical_columns(data_columns=data_columns)
         self.initialize_model_utils()
+        self.initialize_target_utils()
         self.get_model_file_name_dict()
         self.get_target_mapper()
         self.get_target_col_list()
@@ -133,15 +134,6 @@ class XgbInit(ModelInit):
         )
 
     def initialize_target_utils(self) -> None:
-        self.build_id: str = self.config_dict['BUILDING_ID']
-        with open(
-            os.path.join(
-                self.config_dict['PATH_MAPPER_DATA'], 
-                'mapper_category.json'
-            ), 'r'            
-        ) as file_dtype:
-            self.commercial_index = json.load(file_dtype)['train_label']['building_stock_type']['commercial']
-        
         #target mapper for residential/commercial
         with open(
             os.path.join(
