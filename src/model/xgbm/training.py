@@ -9,7 +9,7 @@ from typing import Tuple, Dict
 
 from src.base.model.training import ModelTrain
 from src.model.xgbm.initialize import XgbInit
-from src.model.metric.official_metric import xgb_eval_f1_hierarchical_macro
+from src.model.metric.official_metric import xgb_eval_f1_hierarchical_macro, xgb_multi_target_softmax_obj
 
 class XgbTrainer(ModelTrain, XgbInit):
     def _init_train(self) -> None:
@@ -95,7 +95,9 @@ class XgbTrainer(ModelTrain, XgbInit):
         #commercial metric
         params_xgb = self.params_xgb['commercial']
         target_mapping: Dict[str, np.ndarray] = self.target_mapper['commercial']
-        
+        target_position_list: list[list[int]] = [
+            position_list for position_list in self.target_mapper['commercial'].values()
+        ]
         progress = {}
 
         train_matrix, test_matrix = self.get_dataset(fold_=fold_, current_model='commercial')
@@ -108,7 +110,8 @@ class XgbTrainer(ModelTrain, XgbInit):
             dtrain=train_matrix, 
             num_boost_round=params_xgb['num_boost_round'],
             evals=[(test_matrix, 'valid')],
-            evals_result=progress, verbose_eval=10,
+            evals_result=progress, verbose_eval=10, 
+            obj=partial(xgb_multi_target_softmax_obj, target_position_list),
             custom_metric=partial(xgb_eval_f1_hierarchical_macro, target_mapping)
         )
         model.save_model(
@@ -134,6 +137,9 @@ class XgbTrainer(ModelTrain, XgbInit):
         #residential metric
         params_xgb = self.params_xgb['residential']
         target_mapping: Dict[str, np.ndarray] = self.target_mapper['residential']
+        target_position_list: list[list[int]] = [
+            position_list for position_list in self.target_mapper['residential'].values()
+        ]
 
         progress = {}
 
@@ -148,6 +154,7 @@ class XgbTrainer(ModelTrain, XgbInit):
             num_boost_round=params_xgb['num_boost_round'],
             evals=[(test_matrix, 'valid')],
             evals_result=progress, verbose_eval=10,
+            obj=partial(xgb_multi_target_softmax_obj, target_position_list),
             custom_metric=partial(xgb_eval_f1_hierarchical_macro, target_mapping)
         )
         model.save_model(
@@ -207,14 +214,20 @@ class XgbTrainer(ModelTrain, XgbInit):
         
         train_matrix = xgb.DMatrix(
             train_filtered.select(self.feature_list).collect().to_pandas().to_numpy('float64'),
-            train_filtered.select(target_list).collect().to_pandas().to_numpy('float32'),
-            feature_names=self.feature_list, enable_categorical=True, feature_types=self.feature_types_list
+            train_filtered.select(target_list).collect().to_pandas().to_numpy('float64'),
+            feature_names=self.feature_list, enable_categorical=True, feature_types=self.feature_types_list,
+            #mean prob as base margin
+            base_margin=np.tile(
+                train_filtered.select(pl.col(target_list).mean())
+                .collect().to_pandas()
+                .to_numpy('float64'),
+                (train_filtered.select(pl.len()).collect().item(), 1)
+            ),
         )
-        
         test_matrix = xgb.DMatrix(
             test_filtered.select(self.feature_list).collect().to_pandas().to_numpy('float64'),
-            test_filtered.select(target_list).collect().to_pandas().to_numpy('float32'),
-            feature_names=self.feature_list, enable_categorical=True, feature_types=self.feature_types_list
+            test_filtered.select(target_list).collect().to_pandas().to_numpy('float64'),
+            feature_names=self.feature_list, enable_categorical=True, feature_types=self.feature_types_list,
         )
         return train_matrix, test_matrix
         
