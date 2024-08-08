@@ -263,6 +263,43 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
         )
         return all_daily_consumption
     
+    def __create_total_average_consumptions(self) -> pl.LazyFrame:
+        """
+        Total average consumption over
+        - weekday
+        - hour
+
+        Returns:
+            pl.LazyFrame: _description_
+        """
+        total_average_consumptions = (
+            self.base_data
+            .group_by(
+                'bldg_id',
+            )
+            .agg(
+                [
+                    (
+                        pl.col('energy_consumption')
+                        .filter(pl.col('weekday')==weekday)
+                        .mean()
+                        .alias(f'total_average_consumption_weekday_{weekday}')
+                    )
+                    for weekday in self.weekday_list
+                ] +
+                [
+                    (
+                        pl.col('energy_consumption')
+                        .filter(pl.col('hour')==hour)
+                        .mean()
+                        .alias(f'total_average_consumption_hour_{hour}')
+                    )
+                    for hour in self.hour_list
+                ]
+            )
+        )
+        return total_average_consumptions
+
     def create_utils_features(self) -> None:
         """Create utils information as month"""
         
