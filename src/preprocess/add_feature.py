@@ -300,6 +300,56 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
         )
         return total_average_consumptions
 
+    def __create_total_consumptions(self) -> pl.LazyFrame:
+        """
+        Total consumption over
+        - season
+        - month
+        - weeknum
+
+        Returns:
+            pl.LazyFrame: query
+        """
+        total_consumptions = (
+            self.base_data
+            .group_by(
+                'bldg_id',
+            )
+            .agg(
+                [
+                    (
+                        pl.col('energy_consumption')
+                        .filter(pl.col('season')==season)
+                        .sum()
+                        .alias(f'total_consumption_season_{season}')
+                    )
+                    for season in self.season_list
+                ] +
+                [
+                    (
+                        pl.col('energy_consumption')
+                        .filter(pl.col('month')==month)
+                        .sum()
+                        .alias(f'total_consumption_month_{month}')
+                    )
+                    for month in self.month_list
+                ] +
+                [
+                    (
+                        pl.col('energy_consumption')
+                        .filter(pl.col('weeknum')==weeknum)
+                        .sum()
+                        .alias(f'total_consumption_week_{weeknum}')
+                    )
+                    for weeknum in self.weeknum_list
+                ] +
+                [
+                    pl.col('energy_consumption').sum().alias('total_consumption_ever')
+                ]
+            )
+        )
+        return total_consumptions
+    
     def create_utils_features(self) -> None:
         """Create utils information as month"""
         
