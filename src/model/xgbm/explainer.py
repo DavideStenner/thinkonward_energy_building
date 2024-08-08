@@ -1,4 +1,5 @@
 import os
+import copy
 import numpy as np
 import polars as pl
 import pandas as pd
@@ -7,7 +8,7 @@ import xgboost as xgb
 import matplotlib.pyplot as plt
 
 from tqdm import tqdm
-from typing import Union, Tuple
+from typing import Union, Tuple, Dict
 from sklearn.metrics import f1_score
 from src.model.xgbm.initialize import XgbInit
 
@@ -136,12 +137,14 @@ class XgbExplainer(XgbInit):
         )
         
     def get_feature_importance(self) -> None:
+        self.load_used_feature()        
         for type_model in self.model_used:
             if (
                 'multi_strategy' in self.params_xgb[type_model].keys()
             ):
                 #not supported
-                pass
+                self.__get_permutation_importance()
+        
             else:
                 self.__get_single_feature_importance(type_model=type_model)
     
@@ -328,6 +331,161 @@ class XgbExplainer(XgbInit):
                     index=False
                 )
             )
+            
+    def __oof_score(
+            self, 
+            dataset_list: list[Tuple[pd.DataFrame, pd.DataFrame]],
+            position_target_list: list[list[int]],
+            model_list: list[xgb.Booster], best_epoch: int
+        ) -> float:
+        """
+        Get oof score on each validation set, using trained model with correct number of epoch
+
+        Args:
+            dataset_list (list[Tuple[pd.DataFrame, pd.DataFrame]]): list of oof dataset feature/target
+
+        Returns:
+            float: cv oof score
+        """
+        score_oof = 0
+
+        for fold_, (test_feature, test_target) in enumerate(dataset_list):
+            pred_ = model_list[fold_].predict(
+                data=xgb.DMatrix(
+                    data=test_feature.to_numpy('float64'),
+                    feature_names=self.feature_list
+                ),
+                iteration_range=(0, best_epoch)
+            )
+            score_fold = np.mean(
+                [
+                    f1_score(
+                        y_true=test_target.to_numpy('float64')[:, position_target].argmax(axis=1),
+                        y_pred=pred_[:, position_target].argmax(axis=1),
+                        average='macro'
+                    )
+                    for position_target in position_target_list
+                ]
+            )
+
+            score_oof += score_fold/self.n_fold
+
+        return score_oof
+
+    def __get_list_of_oof_dataset(self, current_model: str) -> list[Tuple[pd.DataFrame, pd.DataFrame]]:
+        list_dataset: list[Tuple[pd.DataFrame, pd.DataFrame]] = []
+        
+        for fold_ in range(self.n_fold):
+            fold_data = (
+                pl.read_parquet(
+                    os.path.join(
+                        self.config_dict['PATH_GOLD_PARQUET_DATA'],
+                        f'train_{current_model}.parquet'
+                    )
+                )
+                .with_columns(
+                    (
+                        pl.col('fold_info').str.split(', ')
+                        .list.get(fold_).alias('current_fold')
+                    )
+                )
+                .filter(
+                    (pl.col('current_fold') == 'v')
+                )
+            )
+            test_feature = (
+                fold_data
+                .select(self.feature_list)
+                .to_pandas()
+            )
+            
+            test_target = (
+                fold_data
+                .select(self.target_dict[current_model])
+                .to_pandas()
+            )
+            list_dataset.append([test_feature, test_target])
+        
+        return list_dataset
+    
+    def __get_permutation_importance(self) -> None:
+        for current_model in ['commercial', 'residential']:
+            self.__get_multi_class_permutation_feature_importance(current_model=current_model)
+    
+    def __shuffled_dataset(self, dataset: pd.DataFrame, feature: str) -> pd.DataFrame:
+        dataset[feature] = dataset[feature].sample(frac=1).to_numpy('float64')
+        return dataset
+    
+    def __get_multi_class_permutation_feature_importance(
+            self, 
+            current_model:str,
+            #magical number
+            num_repetition: int = 3
+        ) -> None:
+        """
+        Permutation feature importance in cross validation
+
+        Args:
+            num_repetition (int, optional): how many times to repeat each fold shuffle. Defaults to 3.
+        """
+        model_list: list[xgb.Booster] = self.load_pickle_model_list(
+            type_model=current_model
+        )
+        dataset_list: list[Tuple[pd.DataFrame, pd.DataFrame]] = self.__get_list_of_oof_dataset(current_model=current_model)
+        best_epoch: int = self.load_best_result(current_model)['best_epoch']
+        position_target_list: list[list[int]] = [
+            position_target for _, position_target in self.mapper_dummy_target[current_model].items()
+        ]
+        
+        base_score: float = self.__oof_score(
+            dataset_list=dataset_list, position_target_list=position_target_list,
+            model_list=model_list, best_epoch=best_epoch
+        )
+        self.training_logger.info(f'{current_model} has a base score of {base_score}')
+                
+        feature_importance_dict = {
+            feature: base_score
+            for feature in self.feature_list
+        }
+        self.training_logger.info(f'Starting {current_model} to calculate permutation importance over {len(self.feature_list)} features')
+        for feature in tqdm(self.feature_list):
+            shuffled_dataset = copy.deepcopy(dataset_list)
+
+            for _ in range(num_repetition):                
+                shuffled_dataset = [
+                    [
+                        self.__shuffled_dataset(
+                            feature_dataset, feature
+                        ), 
+                        target_dataset
+                    ]
+                    for feature_dataset, target_dataset in shuffled_dataset
+                ]
+                result_shuffling = self.__oof_score(
+                    dataset_list=shuffled_dataset, position_target_list=position_target_list,
+                    model_list=model_list, best_epoch=best_epoch
+                )
+                feature_importance_dict[feature] -= (
+                    result_shuffling/num_repetition
+                )
+
+        feature_importance_dict = [
+            {
+                'feature': feature,
+                'importance': change_score
+            }
+            for feature, change_score in feature_importance_dict.items()
+        ]
+        result = pd.DataFrame(
+            data=feature_importance_dict
+        )
+        result.to_excel(
+            os.path.join(
+                self.experiment_path_dict['feature_importance'].format(type=current_model),
+                'feature_importances.xlsx'
+            ), 
+            index=False
+        )
 
     def get_oof_insight(self) -> None:
         self.__get_multi_class_insight_by_target()
