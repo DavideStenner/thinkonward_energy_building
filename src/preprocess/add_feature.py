@@ -8,7 +8,15 @@ from src.preprocess.initialize import PreprocessInit
 class PreprocessAddFeature(BaseFeature, PreprocessInit):    
     
     def __create_slice_hour_aggregation(self) -> pl.LazyFrame:
-        
+        """
+            Create average hour consumption over
+                - season, tou
+                - month, tou
+                - weeknum, tou
+
+        Returns:
+            pl.LazyFrame: query
+        """
 
         all_tou_consumption = (
             self.base_data
@@ -69,16 +77,17 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
         return all_tou_consumption
 
     def __create_hour_aggregation(self) -> pl.LazyFrame:
+        """
+        Create hour average consumption over:
+        - season
+        - month
+        - week
+
+        Returns:
+            pl.LazyFrame: query
+        """
         all_hour_consumption = (
             self.base_data
-            .with_columns(
-                pl.col('timestamp').dt.month().alias('month'),
-                (
-                    pl.col('timestamp').dt.month()
-                    .replace(self.month_season_mapping).alias('season')
-                ),
-                pl.col('timestamp').dt.week().alias('weeknum')
-            )
             .group_by(
                 'bldg_id',
             )
@@ -115,6 +124,15 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
         return all_hour_consumption
 
     def __create_daily_aggregation(self) -> pl.LazyFrame:
+        """
+        Create daily average consumption over:
+        - season
+        - month
+        - week
+
+        Returns:
+            pl.LazyFrame: query
+        """
         all_daily_consumption = (
             self.base_data
             .group_by(
