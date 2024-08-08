@@ -12,3 +12,4 @@ shap
 ipywidgets
 xgboost
 openpyxl
+holidays
