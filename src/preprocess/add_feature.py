@@ -353,6 +353,9 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
     def __create_holidays_feature(self) -> None:
         pass
     
+    def __create_variation_respect_state(self) -> None:
+        pass
+    
     def create_utils_features(self) -> None:
         """Create utils information as month"""
         
@@ -401,10 +404,13 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
         self.lazy_feature_list.append(
             self.__create_total_average_consumptions()
         )
-        self.lazy_feature_list.append(
-            self.__create_holidays_feature()
-        )
-        
+        # self.lazy_feature_list.append(
+        #     self.__create_holidays_feature()
+        # )
+        # self.lazy_feature_list.append(
+        #     self.__create_variation_respect_state()
+        # )
+
     def merge_all(self) -> None:
         self.data = self.base_data.select(self.build_id, 'state').unique()
 
