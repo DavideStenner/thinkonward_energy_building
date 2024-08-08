@@ -350,6 +350,9 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
         )
         return total_consumptions
     
+    def __create_holidays_feature(self) -> None:
+        pass
+    
     def create_utils_features(self) -> None:
         """Create utils information as month"""
         
