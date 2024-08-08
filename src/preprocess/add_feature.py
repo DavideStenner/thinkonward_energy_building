@@ -389,7 +389,22 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
         self.lazy_feature_list.append(
             self.__create_slice_hour_aggregation()
         )
-            
+        self.lazy_feature_list.append(
+            self.__create_total_consumptions()
+        )
+        self.lazy_feature_list.append(
+            self.create_slice_day_aggregation()
+        )
+        self.lazy_feature_list.append(
+            self.__create_hour_weeknum_aggregation()
+        )
+        self.lazy_feature_list.append(
+            self.__create_total_average_consumptions()
+        )
+        self.lazy_feature_list.append(
+            self.__create_holidays_feature()
+        )
+        
     def merge_all(self) -> None:
         self.data = self.base_data.select(self.build_id, 'state').unique()
 
