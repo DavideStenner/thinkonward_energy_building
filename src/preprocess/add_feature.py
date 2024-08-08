@@ -64,6 +64,62 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
         )
         return all_tou_consumption
 
+    def create_slice_day_aggregation(self) -> pl.LazyFrame:
+        """
+        Create average daily consumption over
+            - season, is_weekend
+            - month, is_weekend
+            - weeknum, is_weekend
+
+        Returns:
+            pl.LazyFrame: query
+        """
+        all_day_consumption = (
+            self.base_data
+            .group_by(
+                'bldg_id',
+            )
+            .agg(
+                [
+                    (
+                        pl.col('energy_consumption')
+                        .filter(
+                            (pl.col('season')==season) &
+                            (pl.col('is_weekend')==is_weekend)
+                        )
+                        .mean()
+                        .alias(f'average_hour_consumption_season_{season}_is_weekend_{is_weekend}')
+                    )
+                    for season, is_weekend in product(self.season_list, [0, 1])
+                ] +
+                [
+                    (
+                        pl.col('energy_consumption')
+                        .filter(
+                            (pl.col('month')==month) &
+                            (pl.col('is_weekend')==is_weekend)
+                        )
+                        .mean()
+                        .alias(f'average_hour_consumption_month_{month}_is_weekend_{is_weekend}')
+                    )
+                    for month, is_weekend in product(self.month_list, [0, 1])
+                ] +
+                [
+                    (
+                        pl.col('energy_consumption')
+                        .filter(
+                            (pl.col('weeknum')==week) &
+                            (pl.col('is_weekend')==is_weekend)
+                        )
+                        .mean()
+                        .alias(f'average_hour_consumption_week_{week}_is_weekend_{is_weekend}')
+                    )
+                    for week, is_weekend in product(self.weeknum_list, [0, 1])
+                ]
+            )
+        )
+        return all_day_consumption
+    
     def __create_hour_aggregation(self) -> pl.LazyFrame:
         """
         Create hour average consumption over:
