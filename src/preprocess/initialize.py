@@ -20,9 +20,21 @@ class PreprocessInit(BaseInit):
     def _initialize_all(self) -> None:
         self._initialize_empty_dataset()       
         self._initialize_col_list()
-        self._initialize_dict_mapper()
         self._initialize_utils()
+        self._initialize_date_list()
+    
+    def _initialize_date_list(self) -> None:
+        self._initialize_dict_mapper()
+        
+        self.month_list: list[int] = list(range(1, 12+1))
+        self.season_list: list[int] = list(range(3))
+        self.weeknum_list: list[int] = list(range(1, 53))
+        self.weekday_list: list[int] = list(range(1, 8))
+        self.hour_list: list[int] = list(range(24))
+        
+        self.tou_unique: list[int] = list(set(self.slice_hour_mapping.values()))
 
+        
     def _initialize_utils(self) -> None:
         self.lazy_feature_list: list[pl.LazyFrame] = []
         
@@ -50,9 +62,7 @@ class PreprocessInit(BaseInit):
             #on peak
             16: 2, 17: 2, 18: 2, 19: 2,
         }
-        
-        self.tou_unique: list[int] = list(set(self.slice_hour_mapping.values()))
-    
+            
     def _initialize_col_list(self) -> None:
         self.build_id: str = self.config_dict['BUILDING_ID']
         with open(
