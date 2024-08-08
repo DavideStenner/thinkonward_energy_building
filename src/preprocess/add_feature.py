@@ -120,6 +120,49 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
         )
         return all_day_consumption
     
+    def __create_hour_weeknum_aggregation(self) -> pl.LazyFrame:
+        """
+        Create average daily consumption over
+            - season, weekday
+            - month, weekday
+
+        Returns:
+            pl.LazyFrame: query
+        """
+        all_day_consumption = (
+            self.base_data
+            .group_by(
+                'bldg_id',
+            )
+            .agg(
+                [
+                    (
+                        pl.col('energy_consumption')
+                        .filter(
+                            (pl.col('season')==season) &
+                            (pl.col('weekday')==weekday)
+                        )
+                        .mean()
+                        .alias(f'average_daily_consumption_season_{season}_weekday_{weekday}')
+                    )
+                    for season, weekday in product(self.season_list, self.weekday_list)
+                ] +
+                [
+                    (
+                        pl.col('energy_consumption')
+                        .filter(
+                            (pl.col('month')==month) &
+                            (pl.col('weekday')==weekday)
+                        )
+                        .mean()
+                        .alias(f'average_daily_consumption_month_{month}_weekday_{weekday}')
+                    )
+                    for month, weekday in product(self.month_list, self.weekday_list)
+                ]
+            )
+        )
+        return all_day_consumption
+    
     def __create_hour_aggregation(self) -> pl.LazyFrame:
         """
         Create hour average consumption over:
