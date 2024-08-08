@@ -20,18 +20,6 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
 
         all_tou_consumption = (
             self.base_data
-            .with_columns(
-                (
-                    pl.col('timestamp').dt.hour()
-                    .replace(self.slice_hour_mapping).alias('tou')
-                ),
-                pl.col('timestamp').dt.month().alias('month'),
-                (
-                    pl.col('timestamp').dt.month()
-                    .replace(self.month_season_mapping).alias('season')
-                ),
-                pl.col('timestamp').dt.week().alias('weeknum')
-            )
             .group_by(
                 'bldg_id',
             )
@@ -46,7 +34,7 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
                         .mean()
                         .alias(f'average_hour_consumption_season_{season}_tou_{tou}')
                     )
-                    for season, tou in product(range(3), self.tou_unique)
+                    for season, tou in product(self.season_list, self.tou_unique)
                 ] +
                 [
                     (
@@ -58,7 +46,7 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
                         .mean()
                         .alias(f'average_hour_consumption_month_{month}_tou_{tou}')
                     )
-                    for month, tou in product(range(1, 12+1), self.tou_unique)
+                    for month, tou in product(self.month_list, self.tou_unique)
                 ] +
                 [
                     (
@@ -70,7 +58,7 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
                         .mean()
                         .alias(f'average_hour_consumption_week_{week}_tou_{tou}')
                     )
-                    for week, tou in product(range(1, 53), self.tou_unique)
+                    for week, tou in product(self.weeknum_list, self.tou_unique)
                 ]
             )
         )
@@ -99,7 +87,7 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
                         .mean()
                         .alias(f'average_hour_consumption_season_{season}')
                     )
-                    for season in range(3)
+                    for season in self.season_list
                 ] +
                 [
                     (
@@ -108,7 +96,7 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
                         .mean()
                         .alias(f'average_hour_consumption_month_{month}')
                     )
-                    for month in range(1, 12+1)
+                    for month in self.month_list
                 ] +
                 [
                     (
@@ -117,7 +105,7 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
                         .mean()
                         .alias(f'average_hour_consumption_week_{week}')
                     )
-                    for week in range(1, 53)
+                    for week in self.weeknum_list
                 ]
             )
         )
@@ -136,19 +124,10 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
         all_daily_consumption = (
             self.base_data
             .group_by(
-                'bldg_id',
-                pl.col('timestamp').dt.truncate('1d')
+                'bldg_id', 'season', 'month', 'weeknum', 'day'
             )
             .agg(
                 pl.col('energy_consumption').sum().alias('daily_consumption')
-            )
-            .with_columns(
-                pl.col('timestamp').dt.month().alias('month'),
-                (
-                    pl.col('timestamp').dt.month()
-                    .replace(self.month_season_mapping).alias('season')
-                ),
-                pl.col('timestamp').dt.week().alias('weeknum')
             )
             .group_by(
                 'bldg_id',
@@ -161,7 +140,7 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
                         .mean()
                         .alias(f'average_daily_consumption_season_{season}')
                     )
-                    for season in range(3)
+                    for season in self.season_list
                 ] +
                 [
                     (
@@ -170,7 +149,7 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
                         .mean()
                         .alias(f'average_daily_consumption_month_{month}')
                     )
-                    for month in range(1, 12+1)
+                    for month in self.month_list
                 ] +
                 [
                     (
@@ -179,14 +158,39 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
                         .mean()
                         .alias(f'average_daily_consumption_week_{week}')
                     )
-                    for week in range(1, 53)
+                    for week in self.weeknum_list
                 ]
             )
         )
         return all_daily_consumption
     
+    def create_utils_features(self) -> None:
+        """Create utils information as month"""
         
+        self.base_data = (
+            self.base_data
+            .with_columns(
+                pl.col('timestamp').dt.hour().alias('hour'),
+                pl.col('timestamp').dt.month().alias('month'),
+                pl.col('timestamp').dt.week().alias('weeknum'),
+                pl.col('timestamp').dt.truncate('1d').alias('day'),
+                pl.col('timestamp').dt.weekday().alias('weekday')
+            )
+            .with_columns(
+                (pl.col('weekday')>=6).cast(pl.UInt8).alias('is_weekend'),
+                (
+                    pl.col('hour')
+                    .replace(self.slice_hour_mapping).alias('tou')
+                ),
+                (
+                    pl.col('month')
+                    .replace(self.month_season_mapping).alias('season')
+                )
+            )
+        )
     def create_feature(self) -> None:   
+        self.create_utils_features()
+        
         self.lazy_feature_list.append(
             self.__create_daily_aggregation()
         )
