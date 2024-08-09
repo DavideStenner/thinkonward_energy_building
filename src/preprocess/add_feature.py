@@ -462,6 +462,106 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
         )
         return minutes_drop_features
     
+    def __create_range_work_minutes_features(self) -> pl.LazyFrame:
+        """range_work
+
+
+        Returns:
+            pl.LazyFrame: query
+        """
+        
+        minutes_drop_features = (
+            self.minute_data
+            .sort(self.build_id, 'timestamp')
+            .with_columns(
+                pl.col('timestamp').dt.day().alias('day'),
+                pl.col('timestamp').dt.month().alias('month'),
+                pl.col('timestamp').dt.hour().alias('hour'),
+                pl.col('timestamp').dt.week().alias('weeknum'),
+                pl.col('timestamp').dt.weekday().alias('weekday')
+            )
+            .with_columns(
+                (
+                    pl.col('energy_consumption')
+                    .rolling_mean(window_size=4)
+                    .shift(1)
+                    .over(self.build_id)
+                    .alias('past_hour_energy_consumption')
+                )
+            )
+            .filter(
+                #monday-friday
+                (pl.col('weekday')<=5)
+            )
+            .with_columns(
+                (
+                    (pl.col('energy_consumption') - pl.col('past_hour_energy_consumption'))
+                    .alias('difference_energy_consumption_past')
+                )
+            )
+            .group_by(
+                self.build_id, 'month', 'weeknum', 'day'
+            )
+            #calculate range work
+            .agg(
+                #opening time has more consume than before
+                pl.col('timestamp').filter(
+                    (
+                        pl.col('difference_energy_consumption_past') == (
+                            pl.col('difference_energy_consumption_past')
+                            .filter(
+                                #only between 3-13, 
+                                (pl.col('hour')>=3) &
+                                (pl.col('hour')<=13)
+                            )
+                        ).max()
+                    ) &
+                    (pl.col('hour')>=3) &
+                    (pl.col('hour')<=13)
+                ).min().alias('time_begin'),
+                #opening time has less consume than before
+                pl.col('timestamp').filter(
+                    (
+                        pl.col('difference_energy_consumption_past') == (
+                            pl.col('difference_energy_consumption_past')
+                            .filter(
+                                #after 3, 
+                                pl.col('hour')>=3
+                            )
+                        ).min()
+                    ) &
+                    (pl.col('hour')>=3)
+                ).max().alias('time_end'),
+            )
+            .with_columns(
+                (pl.col('time_end')-pl.col('time_begin')).dt.total_minutes().alias('range_work')
+            )
+            #max over weeknum
+            .group_by(
+                self.build_id, 'month', 'weeknum'
+            )
+            .agg(
+                pl.col('range_work').max()
+            )
+            #min over month
+            .group_by(
+                self.build_id, 'month'
+            )
+            .agg(
+                pl.col('range_work').min()
+            )
+            #now average of min max difference
+            .group_by(
+                self.build_id
+            )
+            .agg(
+                pl.col('range_work').mean().alias(
+                    'average_robust_range_work'
+                )
+            )
+        )
+        return minutes_drop_features
+
     def __create_total_minute_features(self) -> pl.LazyFrame:
         """
         Information over each row of original dataset
@@ -506,9 +606,9 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
         self.lazy_feature_list.append(
             self.__create_total_average_consumptions()
         )
-        # self.lazy_feature_list.append(
-        #     self.__create_total_minute_features()
-        # )
+        self.lazy_feature_list.append(
+            self.__create_range_work_minutes_features()
+        )
         self.lazy_feature_list.append(
             self.__create_drop_minutes_features()
         )
