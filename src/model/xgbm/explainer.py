@@ -143,7 +143,7 @@ class XgbExplainer(XgbInit):
                 'multi_strategy' in self.params_xgb[type_model].keys()
             ):
                 #not supported
-                self.__get_permutation_importance()
+                self.__get_permutation_importance(type_model=type_model)
         
             else:
                 self.__get_single_feature_importance(type_model=type_model)
@@ -408,9 +408,8 @@ class XgbExplainer(XgbInit):
         
         return list_dataset
     
-    def __get_permutation_importance(self) -> None:
-        for current_model in ['commercial', 'residential']:
-            self.__get_multi_class_permutation_feature_importance(current_model=current_model)
+    def __get_permutation_importance(self, type_model: str) -> None:
+        self.__get_multi_class_permutation_feature_importance(current_model=type_model)
     
     def __shuffled_dataset(self, dataset: pd.DataFrame, feature: str) -> pd.DataFrame:
         dataset[feature] = dataset[feature].sample(frac=1).to_numpy('float64')
