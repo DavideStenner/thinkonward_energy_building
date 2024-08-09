@@ -585,7 +585,10 @@ class XgbExplainer(XgbInit):
         )
         (
             feature_importances
-            .groupby('feature_cluster')['importance'].mean()
+            .groupby('feature_cluster')['importance']
+            .agg(
+                ['mean', 'min', 'max', 'count']
+            )
             .reset_index()
             .to_excel(
                 os.path.join(
