@@ -2,6 +2,7 @@ import os
 import json
 import logging
 import polars as pl
+from itertools import product
 from typing import Any, Union, Dict
 
 from src.utils.logging_utils import get_logger
@@ -33,6 +34,12 @@ class PreprocessInit(BaseInit):
         self.hour_list: list[int] = list(range(24))
         
         self.tou_unique: list[int] = list(set(self.slice_hour_mapping.values()))
+        self.drop_hour_minute_list: list[int] = [
+            hour_ + minute_/100 
+            for hour_, minute_ in product(
+                range(3, 14), [0, 15, 30, 45]
+            )
+        ]
 
         
     def _initialize_utils(self) -> None:

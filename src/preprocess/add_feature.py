@@ -387,12 +387,6 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
         Returns:
             pl.LazyFrame: query
         """
-        hour_minute_list: list[int] = [
-            hour_ + minute_/100 
-            for hour_, minute_ in product(
-                range(3, 14), [0, 15, 30, 45]
-            )
-        ]
         
         minutes_drop_features = (
             self.minute_data
@@ -462,7 +456,7 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
                     .alias(
                         f'average_robust_increment_{hour_minute}'
                     )
-                    for hour_minute in hour_minute_list
+                    for hour_minute in self.drop_hour_minute_list
                 ]
             )
         )
@@ -512,9 +506,9 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
         self.lazy_feature_list.append(
             self.__create_total_average_consumptions()
         )
-        self.lazy_feature_list.append(
-            self.__create_total_minute_features()
-        )
+        # self.lazy_feature_list.append(
+        #     self.__create_total_minute_features()
+        # )
         self.lazy_feature_list.append(
             self.__create_minutes_features()
         )
