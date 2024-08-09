@@ -197,6 +197,43 @@ class XgbExplainer(XgbInit):
             ),
             index=False
         )
+    def __get_single_score_by_target(self) -> None:
+        for current_model in ['commercial', 'residential']:
+            best_epoch = self.load_best_result(current_model)['best_epoch']
+            oof_data = (
+                pl.read_parquet(
+                    os.path.join(
+                        self.experiment_path_dict['training'].format(type=current_model),
+                        f'multi_class_by_target.parquet'
+                    )
+                )
+                .with_columns(
+                    (pl.lit('fold_') + pl.col('fold').cast(pl.Utf8)).alias('fold')
+                )
+                .filter(pl.col('iteration') == pl.lit(best_epoch-1))
+                .drop('iteration')
+                .pivot(
+                    'fold',
+                    index=['col_name'], 
+                    values='score',
+                )
+                .to_pandas()
+            )
+            #calculate average over each fold
+            oof_data["average"] = oof_data.loc[
+                :, [f'fold_{x}' for x in range(self.n_fold)]
+            ].mean(axis=1)
+            (
+                oof_data[['col_name', 'average']]
+                .to_excel(
+                    os.path.join(
+                        self.experiment_path_dict['training'].format(type=current_model),
+                        f'best_score_by_target.xlsx'
+                    ),
+                    index=False
+                )
+            )
+
     def __get_multi_class_insight_by_target(self) -> None:
         for current_model in ['commercial', 'residential']:
             best_result = self.load_best_result(current_model)
@@ -229,7 +266,7 @@ class XgbExplainer(XgbInit):
                 data=oof_data, 
                 x="iteration", y='average', hue='col_name'
             )
-            plt.axvline(x=best_result['best_epoch'], color='blue', linestyle='--')
+            plt.axvline(x=best_result['best_epoch'] + 1, color='blue', linestyle='--')
 
             plt.title(f"Training plot curve of all metric")
 
@@ -339,7 +376,8 @@ class XgbExplainer(XgbInit):
             model_list: list[xgb.Booster], best_epoch: int
         ) -> float:
         """
-        Get oof score on each validation set, using trained model with correct number of epoch
+        Get oof score on each validation set, using trained model with correct number of epoch.
+        Score over each target and mean of all target also
 
         Args:
             dataset_list (list[Tuple[pd.DataFrame, pd.DataFrame]]): list of oof dataset feature/target
@@ -488,6 +526,7 @@ class XgbExplainer(XgbInit):
 
     def get_oof_insight(self) -> None:
         self.__get_multi_class_insight_by_target()
+        self.__get_single_score_by_target()
             
     def get_oof_prediction(self) -> None:
         self.__get_multi_class_score_by_target()
