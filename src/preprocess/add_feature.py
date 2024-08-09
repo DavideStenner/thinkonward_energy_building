@@ -483,7 +483,7 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
             .agg(
                 #negative energy implies renovable
                 #https://forum.thinkonward.com/t/negative-energy/2170/2
-                (pl.col('energy_consumption')<0).any().alias('has_renovable').cast(pl.Utf8),
+                (pl.col('energy_consumption')<0).any().alias('has_renovable').cast(pl.UInt8),
             )
         )
         return total_features
