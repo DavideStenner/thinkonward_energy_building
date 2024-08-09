@@ -380,7 +380,7 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
                 )
             )
         )
-    def __create_minutes_features(self) -> pl.LazyFrame:
+    def __create_drop_minutes_features(self) -> pl.LazyFrame:
         """use minutes feature and aggregates
 
 
@@ -510,7 +510,7 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
         #     self.__create_total_minute_features()
         # )
         self.lazy_feature_list.append(
-            self.__create_minutes_features()
+            self.__create_drop_minutes_features()
         )
         # self.lazy_feature_list.append(
         #     self.__create_holidays_feature()
