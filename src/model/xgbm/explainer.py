@@ -1,4 +1,5 @@
 import os
+import re
 import copy
 import numpy as np
 import polars as pl
@@ -448,7 +449,8 @@ class XgbExplainer(XgbInit):
     
     def __get_permutation_importance(self, type_model: str) -> None:
         self.__get_multi_class_permutation_feature_importance(current_model=type_model)
-    
+        self.__get_permutation_importance_by_category_feature(current_model=type_model)
+        
     def __shuffled_dataset(self, dataset: pd.DataFrame, feature: str) -> pd.DataFrame:
         dataset[feature] = dataset[feature].sample(frac=1).to_numpy('float64')
         return dataset
@@ -523,7 +525,77 @@ class XgbExplainer(XgbInit):
             ), 
             index=False
         )
-
+    
+    def __get_permutation_importance_by_category_feature(self, current_model: str) -> None:
+        def replace_multi(x: str) -> str:
+            for string_ in [
+                r'{season}', r'{tou}', r'{month}',
+                r'{week}', r'{is_weekend}', r'{weekday}',
+                r'{hour}', r'{weeknum}', r'{hour_minute}'
+            ]:
+                x = x.replace(string_, r'\d+')
+            return x
+        
+        def get_first_if_any(x: list) -> any:
+            if len(x)>0:
+                return x[0]
+            else:
+                return None
+            
+        feature_importances = pd.read_excel(
+            os.path.join(
+                self.experiment_path_dict['feature_importance'].format(type=current_model),
+                'feature_importances.xlsx'
+            )
+        )
+        feature_list: list[int] = [
+            'average_hour_consumption_season_{season}_tou_{tou}',
+            'average_hour_consumption_month_{month}_tou_{tou}',
+            'average_hour_consumption_week_{week}_tou_{tou}',
+            'average_hour_consumption_season_{season}_is_weekend_{is_weekend}',
+            'average_hour_consumption_month_{month}_is_weekend_{is_weekend}',
+            'average_hour_consumption_week_{week}_is_weekend_{is_weekend}',
+            'average_daily_consumption_season_{season}_weekday_{weekday}',
+            'average_daily_consumption_month_{month}_weekday_{weekday}',
+            'average_hour_consumption_season_{season}',
+            'average_hour_consumption_month_{month}',
+            'average_hour_consumption_week_{week}',
+            'average_daily_consumption_season_{season}',
+            'average_daily_consumption_month_{month}',
+            'average_daily_consumption_week_{week}',
+            'total_average_consumption_weekday_{weekday}',
+            'total_average_consumption_hour_{hour}',
+            'total_consumption_season_{season}',
+            'total_consumption_month_{month}',
+            'total_consumption_week_{weeknum}',
+            'average_robust_increment_{hour_minute}',
+        ]
+        feature_list = [
+            replace_multi(x)
+            for x in feature_list
+        ]
+        feature_importances['feature_cluster'] = feature_importances['feature'].apply(
+            lambda x:
+                get_first_if_any(
+                    [
+                        pattern_ for pattern_ in feature_list
+                        if bool(re.match(pattern_, x))
+                    ]
+                )
+        )
+        (
+            feature_importances
+            .groupby('feature_cluster')['importance'].mean()
+            .reset_index()
+            .to_excel(
+                os.path.join(
+                    self.experiment_path_dict['feature_importance'].format(type=current_model),
+                    'feature_importances_clustered.xlsx'
+                ), 
+                index=False
+            )
+        )
+        
     def get_oof_insight(self) -> None:
         self.__get_multi_class_insight_by_target()
         self.__get_single_score_by_target()
