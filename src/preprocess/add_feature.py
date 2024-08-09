@@ -380,6 +380,114 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
                 )
             )
         )
+    def __create_minutes_features(self) -> pl.LazyFrame:
+        """use minutes feature and aggregates
+
+
+        Returns:
+            pl.LazyFrame: query
+        """
+        hour_minute_list: list[int] = [
+            hour_ + minute_/100 
+            for hour_, minute_ in product(
+                range(3, 14), [0, 15, 30, 45]
+            )
+        ]
+        
+        minutes_drop_features = (
+            self.minute_data
+            .sort(self.build_id, 'timestamp')
+            .with_columns(
+                (pl.col('timestamp').dt.hour() + pl.col('timestamp').dt.minute()/100).alias('hour_minute'),
+                pl.col('timestamp').dt.month().alias('month'),
+                pl.col('timestamp').dt.hour().alias('hour'),
+                pl.col('timestamp').dt.week().alias('weeknum'),
+                pl.col('timestamp').dt.weekday().alias('weekday')
+            )
+            .with_columns(
+                (
+                    pl.col('energy_consumption')
+                    .rolling_mean(window_size=4)
+                    .shift(1)
+                    .over(self.build_id)
+                    .alias('past_hour_energy_consumption')
+                )
+            )
+            .filter(
+                #only between 3-13, monday-friday
+                (pl.col('hour')>=3) &
+                (pl.col('hour')<=13) &
+                (pl.col('weekday')<=5)
+            )
+            .with_columns(
+                (
+                    (pl.col('energy_consumption') - pl.col('past_hour_energy_consumption'))
+                    .alias('difference_energy_consumption_past')
+                )
+            )
+            .group_by(
+                self.build_id, 'month', 'weeknum', 'hour_minute'
+            )
+            #max over week
+            .agg(
+                
+                #opening time has more consume than before
+                pl.col('difference_energy_consumption_past').max()
+            )
+            #min over month
+            .group_by(
+                self.build_id, 'month', 'hour_minute'
+            )
+            .agg(
+                pl.col('difference_energy_consumption_past').min()
+            )
+            #now average of min max difference
+            .group_by(
+                self.build_id, 'hour_minute'
+            )
+            .agg(
+                pl.col('difference_energy_consumption_past').mean().alias(
+                    'average_robust_increment'
+                )
+            )
+            #pivot
+            .group_by(self.build_id)
+            .agg(
+                [
+                    pl.col('average_robust_increment')
+                    .filter(
+                        pl.col('hour_minute') == hour_minute
+                    )
+                    .first()
+                    .alias(
+                        f'average_robust_increment_{hour_minute}'
+                    )
+                    for hour_minute in hour_minute_list
+                ]
+            )
+        )
+        return minutes_drop_features
+    
+    def __create_total_minute_features(self) -> pl.LazyFrame:
+        """
+        Information over each row of original dataset
+
+        Returns:
+            pl.LazyFrame: query
+        """
+        total_features = (
+            self.minute_data
+            .group_by(
+                self.build_id
+            )
+            .agg(
+                #negative energy implies renovable
+                #https://forum.thinkonward.com/t/negative-energy/2170/2
+                (pl.col('energy_consumption')<0).any().alias('has_renovable').cast(pl.Utf8),
+            )
+        )
+        return total_features
+    
     def create_feature(self) -> None:   
         self.create_utils_features()
         
@@ -403,6 +511,12 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
         )
         self.lazy_feature_list.append(
             self.__create_total_average_consumptions()
+        )
+        self.lazy_feature_list.append(
+            self.__create_total_minute_features()
+        )
+        self.lazy_feature_list.append(
+            self.__create_minutes_features()
         )
         # self.lazy_feature_list.append(
         #     self.__create_holidays_feature()
