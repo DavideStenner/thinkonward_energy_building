@@ -54,60 +54,81 @@ if __name__ == '__main__':
             config_dict['PATH_ORIGINAL_DATA'],
             path_folder
         )
-
-        data = pl.concat(
-            [
-                (
-                    pl.scan_parquet(
-                        os.path.join(dataset_chunk_folder, file_name),
-                    )
-                    .with_columns(
-                        pl.col('timestamp').cast(pl.Datetime),
-                        pl.col('out.electricity.total.energy_consumption').cast(pl.Float64),
-                        pl.col('in.state').cast(pl.Utf8),
-                        pl.col('bldg_id').cast(pl.Int64)
-                    )
-                    .with_columns(
-                        pl.col('timestamp').dt.offset_by('-15m')
-                    )
-                    .group_by(
-                        'bldg_id', 'in.state', 
-                        pl.col('timestamp').dt.truncate('1h')
-                    )
-                    .agg(
-                        pl.col('out.electricity.total.energy_consumption').sum()
-                    )
-                    .collect()
-                )
-                for file_name in tqdm(os.listdir(dataset_chunk_folder))
-            ]
-        )
-        num_rows = data.select(pl.len())
-        num_cols = len(data.collect_schema().names())
+        data_hour_list: list[pl.DataFrame] = []
+        data_minute_list: list[pl.DataFrame] = []
         
-        num_rows = (
-            num_rows.collect().item()
-            if isinstance(num_rows, pl.LazyFrame)
-            else num_rows.item()
-        )
+        for file_name in tqdm(os.listdir(dataset_chunk_folder)):
+            minute_result = (
+                pl.scan_parquet(
+                    os.path.join(dataset_chunk_folder, file_name),
+                )
+                .with_columns(
+                    pl.col('timestamp').cast(pl.Datetime),
+                    pl.col('out.electricity.total.energy_consumption').cast(pl.Float64),
+                    pl.col('in.state').cast(pl.Utf8),
+                    pl.col('bldg_id').cast(pl.Int64)
+                )
+                .with_columns(
+                    pl.col('timestamp').dt.offset_by('-15m')
+                )
+                .collect()
+            )
+            hour_result = (
+                minute_result
+                .group_by(
+                    'bldg_id', 'in.state', 
+                    pl.col('timestamp').dt.truncate('1h')
+                )
+                .agg(
+                    pl.col('out.electricity.total.energy_consumption').sum()
+                )
+            )
+            data_hour_list.append(hour_result)
+            data_minute_list.append(minute_result)
+            
+        data_hour = pl.concat(data_hour_list)
+        data_minute = pl.concat(data_minute_list)
+        
+        for title_dataset_, dataset_ in [['hour', data_hour], ['minute', data_minute]]:
+            num_rows = dataset_.select(pl.len())
+            num_cols = len(dataset_.collect_schema().names())
+            
+            num_rows = (
+                num_rows.collect().item()
+                if isinstance(num_rows, pl.LazyFrame)
+                else num_rows.item()
+            )
 
-        logger.info(f'{dataset_label} file has {num_rows} rows and {num_cols} cols')
+            logger.info(f'{dataset_label}-{title_dataset_} file has {num_rows} rows and {num_cols} cols')
 
         if dataset_label == 'train':
-            data, mapper_data = get_mapper_categorical(
-                config_dict=config_dict, data=data, logger=logger
+            data_hour, mapper_data = get_mapper_categorical(
+                config_dict=config_dict, data=data_hour, logger=logger
             )
             mapper_dataset[f'{dataset_label}_data'] = mapper_data
+            data_minute = remap_category(
+                data=data_minute, mapper_mask_col=mapper_data
+            )
         else:
-            data = remap_category(
-                data=data, mapper_mask_col=mapper_data
+            data_hour = remap_category(
+                data=data_hour, mapper_mask_col=mapper_data
+            )
+            data_minute = remap_category(
+                data=data_minute, mapper_mask_col=mapper_data
             )
             
-        logger.info(f'Starting saving {dataset_label} dataset')
-        data.write_parquet(
+        logger.info(f'Starting saving {dataset_label} hour dataset')
+        data_hour.write_parquet(
             os.path.join(
                 config_dict['PATH_SILVER_PARQUET_DATA'],
-                config_dict[f'{dataset_label.upper()}_FEATURE_FILE_NAME']
+                config_dict[f'{dataset_label.upper()}_FEATURE_HOUR_FILE_NAME']
+            )
+        )
+        logger.info(f'Starting saving {dataset_label} minute dataset')
+        data_minute.write_parquet(
+            os.path.join(
+                config_dict['PATH_SILVER_PARQUET_DATA'],
+                config_dict[f'{dataset_label.upper()}_FEATURE_MINUTE_FILE_NAME']
             )
         )
 
