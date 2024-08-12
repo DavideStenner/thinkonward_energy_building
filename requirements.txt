@@ -13,3 +13,4 @@ ipywidgets
 xgboost
 openpyxl
 holidays
+pytorch

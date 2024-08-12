@@ -40,3 +40,15 @@ if __name__=='__main__':
             evaluate_shap=False,
         )
         trainer.train_explain()
+        
+    elif (args.model == 'nn') | (args.all_model):
+        from src.model.nn.pipeline import TabularFFPipeline
+
+        params_model, experiment_name = import_params(model='nn')
+
+        trainer = TabularFFPipeline(
+            experiment_name=experiment_name + "_tabff",
+            params_nn=params_model,
+            config_dict=config_dict, data_columns=preprocessor.feature_list,
+        )
+        trainer.train_explain()
