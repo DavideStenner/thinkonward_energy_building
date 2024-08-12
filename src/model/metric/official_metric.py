@@ -15,6 +15,17 @@ def softmax_by_target(
     
     return y_pred
 
+def f1_by_target(target_position_list: list[int], y_true: np.ndarray, y_pred: np.ndarray) -> list[float]:
+    f1_score_list = [
+        f1_score(
+            y_true=y_true[:, position_target].argmax(axis=1),
+            y_pred=y_pred[:, position_target].argmax(axis=1),
+            average='macro'
+        )
+        for position_target in target_position_list
+    ]
+    return f1_score_list
+
 def xgb_multi_target_softmax_obj(
         target_position_list: list[list[int]], 
         y_pred: np.ndarray, eval_data: xgb.DMatrix
@@ -48,14 +59,10 @@ def xgb_eval_f1_hierarchical_macro(
     ) -> Tuple[str, float]:
     
     y_true = eval_data.get_label().reshape(y_pred.shape)
-    f1_score_list = [
-        f1_score(
-            y_true=y_true[:, position_target].argmax(axis=1),
-            y_pred=y_pred[:, position_target].argmax(axis=1),
-            average='macro'
-        )
-        for _, position_target in target_mapping.items()
-    ]
+    f1_score_list = f1_by_target(
+        target_mapping.values(), 
+        y_true=y_true, y_pred=y_pred 
+    )
 
     score_final = np.mean(f1_score_list)
     return 'f1', score_final
