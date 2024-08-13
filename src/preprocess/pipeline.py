@@ -104,6 +104,7 @@ class PreprocessPipeline(BasePipeline, PreprocessImport, PreprocessAddFeature, P
             
     def collect_feature(self) -> None:
         self.base_data: pl.DataFrame = self.base_data.collect()
+        self.minute_data: pl.DataFrame = self.minute_data.collect()
         
     def collect_all(self) -> None:
         self.collect_feature()
