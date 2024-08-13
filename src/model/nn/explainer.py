@@ -1,16 +1,20 @@
 import os
 import re
 import copy
+import torch
 import numpy as np
 import polars as pl
 import pandas as pd
 import seaborn as sns
+import pytorch_lightning as L
 import matplotlib.pyplot as plt
 
 from tqdm import tqdm
+from torch.utils.data import DataLoader
 from typing import Union, Tuple, Dict
-from sklearn.metrics import f1_score
+from sklearn.metrics import f1_score, roc_auc_score
 from src.model.nn.initialize import TabularFFInit
+from src.nn.dataset import TrainDataset
 
 class TabularFFExplainer(TabularFFInit):       
     def plot_train_curve(self, 
@@ -62,15 +66,17 @@ class TabularFFExplainer(TabularFFInit):
         )
 
         progress_dict = {
-            'time': range(self.params_xgb[type_model]['num_boost_round']),
+            'time': range(self.params_nn[type_model]['trainer']['max_epochs']),
         }
 
-        list_metric = progress_list[0]['valid'].keys()
+        list_metric = [
+            self.model_metric_used[type_model]['label']
+        ]
         
         for metric_ in list_metric:
             progress_dict.update(
                 {
-                    f"{metric_}_fold_{i}": progress_list[i]['valid'][metric_]
+                    f"{metric_}_fold_{i}": progress_list[i]
                     for i in range(self.n_fold)
                 }
             )
@@ -137,50 +143,8 @@ class TabularFFExplainer(TabularFFInit):
         )
         
     def get_feature_importance(self) -> None:
-        for type_model in self.model_used:
-            self.__get_single_feature_importance(type_model=type_model)
-    
-    def __get_single_feature_importance(self, type_model: str) -> None:
-        model_list: list[TabModel] = self.load_pickle_model_list(
-            type_model=type_model, 
-        )
-
-        feature_importances = pd.DataFrame()
-        feature_importances['feature'] = self.feature_list
-
-        for fold_, model in enumerate(model_list):
-            feature_importances[f'fold_{fold_}'] = model.feature_importances_
-
-        feature_importances['average'] = feature_importances[
-            [f'fold_{fold_}' for fold_ in range(self.n_fold)]
-        ].mean(axis=1)
-        
-        feature_importances = (
-            feature_importances[['feature', 'average']]
-            .sort_values(by='average', ascending=False)
-        )
-        #plain feature
-        fig = plt.figure(figsize=(18,8))
-        sns.barplot(data=feature_importances.head(50), x='average', y='feature')
-        plt.title(f"{type_model} 50 TOP feature importance over {self.n_fold} average")
-
-        fig.savefig(
-            os.path.join(
-                self.experiment_path_dict['feature_importance'].format(type=type_model), 
-                'importance_plot.png'
-            )
-        )
-        plt.close(fig)
-        
-        #feature importance excel
-        feature_importances.to_excel(
-            os.path.join(
-                self.experiment_path_dict['feature_importance'].format(type=type_model), 
-                'feature_importances.xlsx'
-            ),
-            index=False
-        )
-    
+        pass
+            
     def __get_single_score_by_target(self) -> None:
         for current_model in ['commercial', 'residential']:
             best_epoch = self.load_best_result(current_model)['best_epoch']
