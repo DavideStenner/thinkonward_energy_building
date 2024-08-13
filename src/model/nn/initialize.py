@@ -242,19 +242,19 @@ class TabularFFInit(ModelInit):
         with open(
             os.path.join(
                 self.experiment_path,
-                'params_tabnet.json'
+                'params_ffnn.json'
             ), 'w'
         ) as file:
-            json.dump(self.params_tabnet, file)
+            json.dump(self.params_nn, file)
     
     def load_params(self) -> None:
         with open(
             os.path.join(
                 self.experiment_path,
-                'params_tabnet.json'
+                'params_ffnn.json'
             ), 'r'
         ) as file:
-            self.params_tabnet = json.load(file)
+            self.params_nn = json.load(file)
     
     def save_best_result(self, best_result: dict[str, Union[int, float]], type_model: str) -> None:
         with open(
