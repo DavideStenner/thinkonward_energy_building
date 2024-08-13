@@ -114,7 +114,6 @@ class TablePredictor(L.LightningModule):
     
     def predict_step(self, batch, batch_idx):
         pred = self.forward(batch)
-        pred = torch.softmax(pred)
         
         return pred
     

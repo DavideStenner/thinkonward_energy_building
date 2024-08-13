@@ -8,10 +8,10 @@ class TrainDataset(Dataset):
     def __init__(
             self, 
             feature: torch.Tensor,
-            target: torch.Tensor,
-            cat_features_idxs: Optional[list[int]],
             config: Dict[str, Any],
             inference: bool,
+            cat_features_idxs: Optional[list[int]],
+            target: Optional[torch.Tensor]=None,
         ):
 
         self.num_row = len(feature)
