@@ -199,7 +199,7 @@ class TabularFFExplainer(TabularFFInit):
         
         #iterate over each model
         for current_model in ['commercial', 'residential']:
-            num_iteration_model: int = self.params_tabnet[current_model]['num_boost_round']
+            num_iteration_model: int = self.params_nn[current_model]['num_boost_round']
             current_model_information = model_information[current_model]
             dummy_target_mapper = self.mapper_dummy_target[current_model]
             f1_score_list: list = []
@@ -274,7 +274,9 @@ class TabularFFExplainer(TabularFFInit):
             )
                                 
     def get_oof_insight(self) -> None:
-        self.__get_single_score_by_target()
+        pass
+        # self.__get_single_score_by_target()
             
     def get_oof_prediction(self) -> None:
-        self.__get_multi_class_score_by_target()
+        pass
+        # self.__get_multi_class_score_by_target()
