@@ -10,7 +10,7 @@ from typing import Tuple, Dict
 
 from src.base.model.training import ModelTrain
 from src.model.nn.initialize import TabularFFInit
-from src.nn.loss import AUCScore
+from src.nn.loss import AUCScore, ClusteredCrossEntropyLoss, ClusteredF1Score
 from src.nn.light_module import TablePredictor, TabularDataModule
 
 class TabularFFTrainer(ModelTrain, TabularFFInit):
@@ -147,35 +147,47 @@ class TabularFFTrainer(ModelTrain, TabularFFInit):
     def train_commercial(self, fold_: int) -> None:
         
         #commercial metric
-        params_tabnet = self.params_tabnet['commercial']
-        target_mapping: Dict[str, np.ndarray] = self.target_mapper['commercial']
         target_position_list: list[list[int]] = [
             position_list for position_list in self.target_mapper['commercial'].values()
         ]
-
-        train_matrix, test_matrix = self.get_dataset(fold_=fold_, current_model='commercial')
+        params = self.params_nn['commercial']
+        
+        train_matrix, valid_matrix = self.get_dataset(fold_=fold_, current_model='commercial')
             
         self.training_logger.info('Start commercial training')
-        model = TablePredictor(
-            cat_idxs = self.categorical_features_idx,
-            cat_dims=self.cat_dims,
-            device_name='cpu'
-            **params_tabnet,
+        
+        #update config
+        params['model']['num_features'] = train_matrix[0].shape[1]
+        params['model']['cat_features_idxs'] = self.categorical_features_idx
+        params['model']['num_labels'] = train_matrix[1].shape[1]
+        params['model']['cat_dim'] = self.cat_dims
+        params['dataset']['path_experiment'] = self.experiment_type_path.format(type='commercial')
+        
+        table_predictor = TablePredictor(
+            config=params['model'], 
+            criterion=ClusteredCrossEntropyLoss(target_position_list=target_position_list), 
+            metric=ClusteredF1Score(target_position_list=target_position_list)
+        )
+        data_module = TabularDataModule(
+            config=params['dataset'], 
+            train_matrix=train_matrix,
+            valid_matrix=valid_matrix,
+            cat_features_idxs=self.categorical_features_idx,
         )
         
-        model.fit(
-            X_train=train_matrix[0], y_train=train_matrix[1],
-            eval_set=test_matrix,
-            max_epochs=params_tabnet['max_epochs'],
-            patience=0,
-            batch_size=params_tabnet['batch_size'],
-            virtual_batch_size=params_tabnet['virtual_batch_size'],
-            num_workers=0,
-            drop_last=False,
+        loggers = CSVLogger(
+            save_dir=self.experiment_path,
+            name='csv_log.csv',
         )
 
+        trainer = L.Trainer(
+            logger=[loggers],
+            **params['trainer']
+        )
+            
+        trainer.fit(table_predictor, data_module)
 
-        model.save_model(
+        trainer.save_checkpoint(
             os.path.join(
                 self.experiment_type_path.format(type='commercial'),
                 'model',
@@ -186,11 +198,11 @@ class TabularFFTrainer(ModelTrain, TabularFFInit):
             )
         )
 
-        self.model_commercial_list.append(model)
-        self.progress_commercial_list.append(model.history['valid']['loss'])
+        self.model_commercial_list.append(table_predictor)
+        self.progress_commercial_list.append(table_predictor.history[self.model_metric_used['commercial']['label']])
 
-        del train_matrix, test_matrix
-
+        del train_matrix, valid_matrix
+        
         _ = gc.collect()
     
     def train_residential(self, fold_: int) -> None:
@@ -301,10 +313,10 @@ class TabularFFTrainer(ModelTrain, TabularFFInit):
             if 'binary' in self.model_used:
                 self.train_binary(fold_=fold_)
             
-            # if 'commercial' in self.model_used:
-            #     self.train_commercial(fold_=fold_)
+            if 'commercial' in self.model_used:
+                self.train_commercial(fold_=fold_)
             
-            # if 'residential' in self.model_used:
+            if 'residential' in self.model_used:
             #     self.train_residential(fold_=fold_)
 
     def save_model(self)->None:
