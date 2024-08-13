@@ -47,16 +47,14 @@ class ClusteredCrossEntropyLoss(nn.Module):
         self.target_position_list: list[int] = target_position_list
         self.base_criterion = nn.CrossEntropyLoss()
         
-    def forward(self, input: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-        loss_ = [
-            self.base_criterion(
-                input[:, target_position],
+    def forward(self, input_: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+        loss_ = 0
+        for target_position in self.target_position_list:
+            loss_ += self.base_criterion(
+                input_[:, target_position],
                 target[:, target_position]
-            ).reshape(1)
-            for target_position in self.target_position_list
-        ]
+            )
         
-        mean_loss_ = torch.mean(torch.cat(loss_))
-        return mean_loss_
+        return loss_
             
         
