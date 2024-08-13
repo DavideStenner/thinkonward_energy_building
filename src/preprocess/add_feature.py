@@ -198,16 +198,16 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
                         .alias(f'average_hour_consumption_month_{month}')
                     )
                     for month in self.month_list
-                ] +
-                [
-                    (
-                        pl.col('energy_consumption')
-                        .filter(pl.col('weeknum')==week)
-                        .mean()
-                        .alias(f'average_hour_consumption_week_{week}')
-                    )
-                    for week in self.weeknum_list
-                ]
+                ]# +
+                # [
+                #     (
+                #         pl.col('energy_consumption')
+                #         .filter(pl.col('weeknum')==week)
+                #         .mean()
+                #         .alias(f'average_hour_consumption_week_{week}')
+                #     )
+                #     for week in self.weeknum_list
+                # ]
             )
         )
         return all_hour_consumption
@@ -336,15 +336,15 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
                     )
                     for month in self.month_list
                 ] +
-                [
-                    (
-                        pl.col('energy_consumption')
-                        .filter(pl.col('weeknum')==weeknum)
-                        .sum()
-                        .alias(f'total_consumption_week_{weeknum}')
-                    )
-                    for weeknum in self.weeknum_list
-                ] +
+                # [
+                #     (
+                #         pl.col('energy_consumption')
+                #         .filter(pl.col('weeknum')==weeknum)
+                #         .sum()
+                #         .alias(f'total_consumption_week_{weeknum}')
+                #     )
+                #     for weeknum in self.weeknum_list
+                # ] +
                 [
                     pl.col('energy_consumption').sum().alias('total_consumption_ever')
                 ]
@@ -496,6 +496,7 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
         )
         self.__create_holidays_utils()
         
+    def __create_increment_minutes_features(self) -> pl.LazyFrame:
         """use minutes feature and aggregates
 
 
@@ -676,27 +677,7 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
             )
         )
         return minutes_drop_features
-
-    def __create_total_minute_features(self) -> pl.LazyFrame:
-        """
-        Information over each row of original dataset
-
-        Returns:
-            pl.LazyFrame: query
-        """
-        total_features = (
-            self.minute_data
-            .group_by(
-                self.build_id
-            )
-            .agg(
-                #negative energy implies renovable
-                #https://forum.thinkonward.com/t/negative-energy/2170/2
-                (pl.col('energy_consumption')<0).any().alias('has_renovable').cast(pl.UInt8),
-            )
-        )
-        return total_features
-    
+            
     def create_feature(self) -> None:   
         self.create_utils_features()
         
@@ -725,7 +706,7 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
             self.__create_range_work_minutes_features()
         )
         self.lazy_feature_list.append(
-            self.__create_drop_minutes_features()
+            self.__create_increment_minutes_features()
         )
         self.lazy_feature_list.append(
             self.__create_tou_holidays_feature()
