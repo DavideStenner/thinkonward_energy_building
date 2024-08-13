@@ -78,8 +78,10 @@ class PreprocessInit(BaseInit):
                 'mapper_category.json'
             ), 'r'            
         ) as file_dtype:
-            self.commercial_index = json.load(file_dtype)['train_label']['building_stock_type']['commercial']
-        
+            mapper_ = json.load(file_dtype)
+            self.commercial_index = mapper_['train_label']['building_stock_type']['commercial']
+            self.state_mapper: Dict[str, int] = mapper_['train_data']['in.state']
+            
         self.target_col_binary: str = self.config_dict['TARGET_DICT']['BINARY']
         self.target_col_com_list: list[str] = self.config_dict['TARGET_DICT']['COMMERCIAL']
         self.target_col_res_list: list[str] = self.config_dict['TARGET_DICT']['RESIDENTIAL']

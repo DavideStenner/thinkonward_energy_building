@@ -1,3 +1,5 @@
+import holidays
+import pandas as pd
 import polars as pl
 
 from typing import Union, Dict, Optional
@@ -350,15 +352,127 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
         )
         return total_consumptions
     
-    def __create_holidays_feature(self) -> None:
-        pass
+    def __create_daily_holidays_feature(self) -> pl.LazyFrame:
+        daily_holiday_consumption = (
+            self.base_data
+            .group_by(
+                'bldg_id', 'day'
+            )
+            .agg(
+                pl.col('is_national_holiday').first(), pl.col('is_state_holiday').first(),
+                pl.col('energy_consumption').sum().alias('daily_consumption')
+            )
+            .group_by(
+                'bldg_id',
+            )
+            .agg(
+                [
+                    (
+                        pl.col('daily_consumption')
+                        .filter(pl.col('is_national_holiday'))
+                        .mean()
+                        .alias(f'average_daily_consumption_national_holiday')
+                    ),
+                    (
+                        pl.col('daily_consumption')
+                        .filter(pl.col('is_state_holiday'))
+                        .mean()
+                        .alias(f'average_daily_consumption_state_holiday')
+                    )
+                ] 
+            )
+        )
+        return daily_holiday_consumption
+
+    def __create_tou_holidays_feature(self) -> pl.LazyFrame:
+        all_tou_consumption_holidays = (
+            self.base_data
+            .group_by(
+                'bldg_id', 
+            )
+            .agg(
+                [
+                    (
+                        pl.col('energy_consumption')
+                        .filter(
+                            (pl.col('is_national_holiday')) &
+                            (pl.col('tou')==tou)
+                        )
+                        .mean()
+                        .alias(f'average_hour_consumption_national_holiday_tou_{tou}')
+                    )
+                    for tou in self.tou_unique
+                ] +
+                [
+                    (
+                        pl.col('energy_consumption')
+                        .filter(
+                            (pl.col('is_state_holiday')) &
+                            (pl.col('tou')==tou)
+                        )
+                        .mean()
+                        .alias(f'average_hour_consumption_state_holiday_tou_{tou}')
+                    )
+                    for tou in self.tou_unique
+                ]
+            )
+        )
+        return all_tou_consumption_holidays
     
     def __create_variation_respect_state(self) -> None:
         pass
     
+    def __create_holidays_utils(self) -> None:
+ 
+        national_holidays = {
+            date_: True
+            for date_ in holidays.country_holidays('US', years=2018).keys()
+        }
+        state_holidays_mapper = {
+            state_index: [
+                date_.strftime('%Y-%m-%d')
+                for date_ in holidays.country_holidays('US', subdiv=state_name, years=2018).keys()
+                if date_ not in national_holidays.keys()
+            ]
+            for state_name, state_index in self.state_mapper.items()
+        }
+
+        state_holidays = pd.DataFrame(
+            {'state': self.state_mapper.values()}
+        )
+        state_holidays['day'] = state_holidays['state'].apply(lambda x: state_holidays_mapper[x])
+        state_holidays = state_holidays.explode(column='day')
+        
+        state_holidays = (
+            pl.from_dataframe(state_holidays)
+            .with_columns(
+                pl.col('state').cast(pl.UInt8),
+                pl.col('day').cast(pl.Date).cast(pl.Datetime), 
+                pl.lit(True).cast(pl.Boolean).alias('is_state_holiday')
+            )
+            .filter(pl.col('day').is_null().not_())
+        )
+        if isinstance(self.base_data, pl.LazyFrame):
+            state_holidays = state_holidays.lazy()
+            
+        self.base_data = (
+            self.base_data
+            .with_columns(
+                (
+                    pl.col('day').replace(national_holidays, default=False)
+                    .cast(pl.Boolean).alias('is_national_holiday')
+                )
+            )
+            .join(
+                state_holidays, 
+                on=['state', 'day'], how='left'
+            )
+            .with_columns(pl.col('is_state_holiday').fill_null(False))
+
+        )
+        
     def create_utils_features(self) -> None:
         """Create utils information as month"""
-        
         self.base_data = (
             self.base_data
             .with_columns(
@@ -380,7 +494,8 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
                 )
             )
         )
-    def __create_drop_minutes_features(self) -> pl.LazyFrame:
+        self.__create_holidays_utils()
+        
         """use minutes feature and aggregates
 
 
@@ -612,12 +727,12 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
         self.lazy_feature_list.append(
             self.__create_drop_minutes_features()
         )
-        # self.lazy_feature_list.append(
-        #     self.__create_holidays_feature()
-        # )
-        # self.lazy_feature_list.append(
-        #     self.__create_variation_respect_state()
-        # )
+        self.lazy_feature_list.append(
+            self.__create_tou_holidays_feature()
+        )
+        self.lazy_feature_list.append(
+            self.__create_daily_holidays_feature()
+        )
 
     def merge_all(self) -> None:
         self.data = self.base_data.select(self.build_id, 'state').unique()
