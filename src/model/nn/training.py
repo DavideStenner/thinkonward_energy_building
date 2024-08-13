@@ -114,13 +114,7 @@ class TabularFFTrainer(ModelTrain, TabularFFInit):
             cat_features_idxs=self.categorical_features_idx,
         )
         
-        loggers = CSVLogger(
-            save_dir=self.experiment_path,
-            name='csv_log.csv',
-        )
-
         trainer = L.Trainer(
-            logger=[loggers],
             **params['trainer']
         )
 
@@ -175,13 +169,7 @@ class TabularFFTrainer(ModelTrain, TabularFFInit):
             cat_features_idxs=self.categorical_features_idx,
         )
         
-        loggers = CSVLogger(
-            save_dir=self.experiment_path,
-            name='csv_log.csv',
-        )
-
         trainer = L.Trainer(
-            logger=[loggers],
             **params['trainer']
         )
             
@@ -236,13 +224,7 @@ class TabularFFTrainer(ModelTrain, TabularFFInit):
             cat_features_idxs=self.categorical_features_idx,
         )
         
-        loggers = CSVLogger(
-            save_dir=self.experiment_path,
-            name='csv_log.csv',
-        )
-
         trainer = L.Trainer(
-            logger=[loggers],
             **params['trainer']
         )
             
@@ -322,8 +304,8 @@ class TabularFFTrainer(ModelTrain, TabularFFInit):
             self.training_logger.info(f'\n\nStarting fold {fold_}\n\n\n')
             self.training_logger.info('Collecting dataset')
             
-            if 'binary' in self.model_used:
-                self.train_binary(fold_=fold_)
+            # if 'binary' in self.model_used:
+            #     self.train_binary(fold_=fold_)
             
             if 'commercial' in self.model_used:
                 self.train_commercial(fold_=fold_)
