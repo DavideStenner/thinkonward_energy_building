@@ -103,7 +103,7 @@ class TabularFFTrainer(ModelTrain, TabularFFInit):
         params['model']['cat_dim'] = self.cat_dims
         params['dataset']['path_experiment'] = self.experiment_type_path.format(type='binary')
         
-        classifier = TablePredictor(
+        table_predictor = TablePredictor(
             config=params['model'], 
             criterion=nn.BCEWithLogitsLoss(), metric=AUCScore()
         )
@@ -124,7 +124,7 @@ class TabularFFTrainer(ModelTrain, TabularFFInit):
             **params['trainer']
         )
 
-        trainer.fit(classifier, data_module)
+        trainer.fit(table_predictor, data_module)
 
         trainer.save_checkpoint(
             os.path.join(
@@ -137,8 +137,8 @@ class TabularFFTrainer(ModelTrain, TabularFFInit):
             )
         )
 
-        self.model_binary_list.append(classifier)
-        self.progress_binary_list.append(classifier.history[self.model_metric_used['binary']['label']])
+        self.model_binary_list.append(table_predictor)
+        self.progress_binary_list.append(table_predictor.history[self.model_metric_used['binary']['label']])
 
         del train_matrix, valid_matrix
         
