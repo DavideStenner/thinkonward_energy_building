@@ -145,7 +145,7 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
                             (pl.col('weekday')==weekday)
                         )
                         .mean()
-                        .alias(f'average_daily_consumption_season_{season}_weekday_{weekday}')
+                        .alias(f'average_hour_consumption_season_{season}_weekday_{weekday}')
                     )
                     for season, weekday in product(self.season_list, self.weekday_list)
                 ] +
@@ -157,7 +157,7 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
                             (pl.col('weekday')==weekday)
                         )
                         .mean()
-                        .alias(f'average_daily_consumption_month_{month}_weekday_{weekday}')
+                        .alias(f'average_hour_consumption_month_{month}_weekday_{weekday}')
                     )
                     for month, weekday in product(self.month_list, self.weekday_list)
                 ]
@@ -344,7 +344,7 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
         )
         return all_tou_consumption_holidays
     
-    def __create_variation_respect_state(self) -> None:
+    def __create_variation_respect_state(self) -> pl.LazyFrame:
         total_variation_consumptions = (
             self.base_data
             .group_by(
@@ -428,7 +428,7 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
         )
         return total_variation_consumptions
     
-    def __create_holidays_utils(self) -> None:
+    def __create_holidays_utils(self) -> pl.LazyFrame:
  
         national_holidays = {
             date_: True
