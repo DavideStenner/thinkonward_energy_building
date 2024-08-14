@@ -612,6 +612,18 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
                 )
             )
         )
+        self.minute_data = (
+            self.minute_data
+            .sort(self.build_id, 'timestamp')
+            .with_columns(
+                pl.col('timestamp').dt.truncate('1d').alias('day'),
+                pl.col('timestamp').dt.month().alias('month'),
+                pl.col('timestamp').dt.hour().alias('hour'),
+                pl.col('timestamp').dt.week().alias('weeknum'),
+                pl.col('timestamp').dt.weekday().alias('weekday')
+            )
+        )
+        
         self.__create_holidays_utils()
         
     def __create_increment_minutes_features(self) -> pl.LazyFrame:
