@@ -1086,6 +1086,11 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
         self.lazy_feature_list.append(
             self.__create_variation_respect_state()
         )
+        #add list
+        self.lazy_feature_list += (
+            self.__create_hour_profile_consumption() +
+            self.__create_weekday_profile_consumption()
+        )
 
     def merge_all(self) -> None:
         self.data = self.base_data.select(self.build_id, 'state').unique()
