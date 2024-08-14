@@ -345,7 +345,88 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
         return all_tou_consumption_holidays
     
     def __create_variation_respect_state(self) -> None:
-        pass
+        total_variation_consumptions = (
+            self.base_data
+            .group_by(
+                'bldg_id', 'state'
+            )
+            .agg(
+                [
+                    (
+                        pl.col('energy_consumption')
+                        .filter(pl.col('season')==season)
+                        .sum()
+                        .alias(f'total_consumption_season_{season}_vs_state')
+                    )
+                    for season in self.season_list
+                ] +
+                [
+                    (
+                        pl.col('energy_consumption')
+                        .filter(pl.col('month')==month)
+                        .sum()
+                        .alias(f'total_consumption_month_{month}_vs_state')
+                    )
+                    for month in self.month_list
+                ] +
+                [
+                    (
+                        pl.col('energy_consumption')
+                        .filter(pl.col('weekday')==weekday)
+                        .sum()
+                        .alias(f'total_consumption_weekday_{weekday}_vs_state')
+                    )
+                    for weekday in self.weekday_list
+                ] +
+                [
+                    (
+                        pl.col('energy_consumption')
+                        .filter(pl.col('hour')==hour)
+                        .sum()
+                        .alias(f'total_consumption_hour_{hour}_vs_state')
+                    )
+                    for hour in self.hour_list
+                ] +
+                [
+                    pl.col('energy_consumption').sum().alias('total_consumption_ever_vs_state')
+                ]
+            )
+            .with_columns(
+                [
+                    (
+                        pl.col(f'total_consumption_season_{season}_vs_state')/
+                        pl.col(f'total_consumption_season_{season}_vs_state').mean().over('state')
+                    )
+                    for season in self.season_list
+                ] +
+                [
+                    (
+                        pl.col(f'total_consumption_month_{month}_vs_state')/
+                        pl.col(f'total_consumption_month_{month}_vs_state').mean().over('state')
+                    )
+                    for month in self.month_list
+                ] +
+                [
+                    (
+                        pl.col(f'total_consumption_weekday_{weekday}_vs_state')/
+                        pl.col(f'total_consumption_weekday_{weekday}_vs_state').mean().over('state')
+                    )
+                    for weekday in self.weekday_list
+                ] +
+                [
+                    (
+                        pl.col(f'total_consumption_hour_{hour}_vs_state')/
+                        pl.col(f'total_consumption_hour_{hour}_vs_state').mean().over('state')
+                    )
+                    for hour in self.hour_list
+                ] +
+                [
+                    pl.col('total_consumption_ever_vs_state')/pl.col('total_consumption_ever_vs_state').mean().over('state')
+                ]
+            )
+            .drop('state')
+        )
+        return total_variation_consumptions
     
     def __create_holidays_utils(self) -> None:
  
@@ -429,7 +510,7 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
             pl.LazyFrame: query
         """
         
-        minutes_drop_features = (
+        minutes_increment_features = (
             self.minute_data
             .sort(self.build_id, 'timestamp')
             .with_columns(
@@ -497,12 +578,256 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
                     .alias(
                         f'average_robust_increment_{hour_minute}'
                     )
+                    for hour_minute in self.increment_hour_minute_list
+                ]
+            )
+        )
+        return minutes_increment_features
+
+    def __create_increment_minutes_by_day_features(self) -> pl.LazyFrame:
+        """use minutes feature and aggregates
+
+
+        Returns:
+            pl.LazyFrame: query
+        """
+        
+        minutes_increment_features = (
+            self.minute_data
+            .sort(self.build_id, 'timestamp')
+            .with_columns(
+                (pl.col('timestamp').dt.hour() + pl.col('timestamp').dt.minute()/100).alias('hour_minute'),
+                pl.col('timestamp').dt.month().alias('month'),
+                pl.col('timestamp').dt.hour().alias('hour'),
+                pl.col('timestamp').dt.week().alias('weeknum'),
+                pl.col('timestamp').dt.weekday().alias('weekday')
+            )
+            .with_columns(
+                (
+                    pl.col('energy_consumption')
+                    .rolling_mean(window_size=4)
+                    .shift(1)
+                    .over(self.build_id)
+                    .alias('past_hour_energy_consumption')
+                )
+            )
+            .filter(
+                #only between 3-13, monday-friday
+                (pl.col('hour')>=3) &
+                (pl.col('hour')<=13)
+            )
+            .with_columns(
+                (
+                    (pl.col('energy_consumption') - pl.col('past_hour_energy_consumption'))
+                    .alias('difference_energy_consumption_past')
+                )
+            )
+            .group_by(
+                self.build_id, 'month', 'weeknum', 'weekday'
+            )
+            #max over week
+            .agg(
+                
+                #opening time has more consume than before
+                pl.col('difference_energy_consumption_past').max()
+            )
+            #min over month
+            .group_by(
+                self.build_id, 'month', 'weekday'
+            )
+            .agg(
+                pl.col('difference_energy_consumption_past').min()
+            )
+            #now average of min max difference
+            .group_by(
+                self.build_id, 'weekday'
+            )
+            .agg(
+                pl.col('difference_energy_consumption_past').mean().alias(
+                    'average_robust_increment'
+                )
+            )
+            #pivot
+            .group_by(self.build_id)
+            .agg(
+                [
+                    pl.col('average_robust_increment')
+                    .filter(
+                        pl.col('weekday') == weekday
+                    )
+                    .first()
+                    .alias(
+                        f'average_robust_increment_weekday_{weekday}'
+                    )
+                    for weekday in self.weekday_list
+                ]
+            )
+        )
+        return minutes_increment_features
+
+    def __create_drop_minutes_by_day_features(self) -> pl.LazyFrame:
+        """use minutes feature and aggregates
+
+
+        Returns:
+            pl.LazyFrame: query
+        """
+        
+        minutes_drop_features = (
+            self.minute_data
+            .sort(self.build_id, 'timestamp')
+            .with_columns(
+                (pl.col('timestamp').dt.hour() + pl.col('timestamp').dt.minute()/100).alias('hour_minute'),
+                pl.col('timestamp').dt.month().alias('month'),
+                pl.col('timestamp').dt.hour().alias('hour'),
+                pl.col('timestamp').dt.week().alias('weeknum'),
+                pl.col('timestamp').dt.weekday().alias('weekday')
+            )
+            .with_columns(
+                (
+                    pl.col('energy_consumption')
+                    .rolling_mean(window_size=4)
+                    .shift(-4)
+                    .over(self.build_id)
+                    .alias('future_hour_energy_consumption')
+                )
+            )
+            .filter(
+                #only between 3-13, monday-friday
+                (pl.col('hour')>=14) &
+                (pl.col('hour')<=24)
+            )
+            .with_columns(
+                (
+                    (pl.col('energy_consumption') - pl.col('future_hour_energy_consumption'))
+                    .alias('difference_energy_consumption_future')
+                )
+            )
+            .group_by(
+                self.build_id, 'month', 'weeknum', 'weekday'
+            )
+            #min over week
+            .agg(
+                
+                #ending time has less consume than before
+                pl.col('difference_energy_consumption_future').min()
+            )
+            #max over month
+            .group_by(
+                self.build_id, 'month', 'weekday'
+            )
+            .agg(
+                pl.col('difference_energy_consumption_future').max()
+            )
+            #now average of min max difference
+            .group_by(
+                self.build_id, 'weekday'
+            )
+            .agg(
+                pl.col('difference_energy_consumption_future').mean().alias(
+                    'average_robust_drop'
+                )
+            )
+            #pivot
+            .group_by(self.build_id)
+            .agg(
+                [
+                    pl.col('average_robust_drop')
+                    .filter(
+                        pl.col('weekday') == weekday
+                    )
+                    .first()
+                    .alias(
+                        f'average_robust_drop_weekday_{weekday}'
+                    )
+                    for weekday in self.weekday_list
+                ]
+            )
+        )
+        return minutes_drop_features
+
+    def __create_drop_minutes_features(self) -> pl.LazyFrame:
+        """use minutes feature and aggregates
+
+
+        Returns:
+            pl.LazyFrame: query
+        """
+        
+        minutes_drop_features = (
+            self.minute_data
+            .sort(self.build_id, 'timestamp')
+            .with_columns(
+                (pl.col('timestamp').dt.hour() + pl.col('timestamp').dt.minute()/100).alias('hour_minute'),
+                pl.col('timestamp').dt.month().alias('month'),
+                pl.col('timestamp').dt.hour().alias('hour'),
+                pl.col('timestamp').dt.week().alias('weeknum'),
+                pl.col('timestamp').dt.weekday().alias('weekday')
+            )
+            .with_columns(
+                (
+                    pl.col('energy_consumption')
+                    .rolling_mean(window_size=4)
+                    .shift(-4)
+                    .over(self.build_id)
+                    .alias('future_hour_energy_consumption')
+                )
+            )
+            .filter(
+                #only between 3-13, monday-friday
+                (pl.col('hour')>=14) &
+                (pl.col('hour')<=24) &
+                (pl.col('weekday')<=5)
+            )
+            .with_columns(
+                (
+                    (pl.col('energy_consumption') - pl.col('future_hour_energy_consumption'))
+                    .alias('difference_energy_consumption_future')
+                )
+            )
+            .group_by(
+                self.build_id, 'month', 'weeknum', 'hour_minute'
+            )
+            #min over week
+            .agg(
+                
+                #ending time has less consume than before
+                pl.col('difference_energy_consumption_future').min()
+            )
+            #max over month
+            .group_by(
+                self.build_id, 'month', 'hour_minute'
+            )
+            .agg(
+                pl.col('difference_energy_consumption_future').max()
+            )
+            #now average of min max difference
+            .group_by(
+                self.build_id, 'hour_minute'
+            )
+            .agg(
+                pl.col('difference_energy_consumption_future').mean().alias(
+                    'average_robust_drop'
+                )
+            )
+            #pivot
+            .group_by(self.build_id)
+            .agg(
+                [
+                    pl.col('average_robust_drop')
+                    .filter(
+                        pl.col('hour_minute') == hour_minute
+                    )
+                    .first()
+                    .alias(
+                        f'average_robust_drop_{hour_minute}'
+                    )
                     for hour_minute in self.drop_hour_minute_list
                 ]
             )
         )
         return minutes_drop_features
-    
+
     def __create_range_work_minutes_features(self) -> pl.LazyFrame:
         """range_work
 
@@ -610,9 +935,6 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
             self.__create_daily_aggregation()
         )
         self.lazy_feature_list.append(
-            self.__create_hour_aggregation()
-        )
-        self.lazy_feature_list.append(
             self.__create_slice_hour_aggregation()
         )
         self.lazy_feature_list.append(
@@ -625,19 +947,25 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
             self.__create_hour_weeknum_aggregation()
         )
         self.lazy_feature_list.append(
-            self.__create_total_average_consumptions()
-        )
-        self.lazy_feature_list.append(
             self.__create_range_work_minutes_features()
         )
         self.lazy_feature_list.append(
             self.__create_increment_minutes_features()
         )
         self.lazy_feature_list.append(
+            self.__create_increment_minutes_by_day_features()
+        )
+        self.lazy_feature_list.append(
             self.__create_tou_holidays_feature()
         )
         self.lazy_feature_list.append(
             self.__create_daily_holidays_feature()
+        )
+        self.lazy_feature_list.append(
+            self.__create_drop_minutes_features()
+        )
+        self.lazy_feature_list.append(
+            self.__create_drop_minutes_by_day_features()
         )
         self.lazy_feature_list.append(
             self.__create_variation_respect_state()
