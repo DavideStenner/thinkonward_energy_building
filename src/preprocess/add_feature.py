@@ -962,14 +962,6 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
         
         minutes_drop_features = (
             self.minute_data
-            .sort(self.build_id, 'timestamp')
-            .with_columns(
-                pl.col('timestamp').dt.day().alias('day'),
-                pl.col('timestamp').dt.month().alias('month'),
-                pl.col('timestamp').dt.hour().alias('hour'),
-                pl.col('timestamp').dt.week().alias('weeknum'),
-                pl.col('timestamp').dt.weekday().alias('weekday')
-            )
             .with_columns(
                 (
                     pl.col('energy_consumption')
