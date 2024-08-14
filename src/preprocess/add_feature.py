@@ -178,12 +178,6 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
         all_daily_consumption = (
             self.base_data
             .group_by(
-                'bldg_id', 'season', 'month', 'weeknum', 'day'
-            )
-            .agg(
-                pl.col('energy_consumption').sum().alias('daily_consumption')
-            )
-            .group_by(
                 'bldg_id',
             )
             .agg(
@@ -280,13 +274,6 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
     def __create_daily_holidays_feature(self) -> pl.LazyFrame:
         daily_holiday_consumption = (
             self.base_data
-            .group_by(
-                'bldg_id', 'day'
-            )
-            .agg(
-                pl.col('is_national_holiday').first(), pl.col('is_state_holiday').first(),
-                pl.col('energy_consumption').sum().alias('daily_consumption')
-            )
             .group_by(
                 'bldg_id',
             )
@@ -497,6 +484,9 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
                 (
                     pl.col('month')
                     .replace(self.month_season_mapping).alias('season')
+                ),
+                (
+                    pl.col('energy_consumption').sum().over([self.build_id, 'day']).alias('daily_consumption')
                 )
             )
         )
