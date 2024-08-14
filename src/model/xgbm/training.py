@@ -242,12 +242,12 @@ class XgbTrainer(ModelTrain, XgbInit):
             if 'binary' in self.model_used:
                 self.train_binary(fold_=fold_)
             
-            if 'commercial' in self.model_used:
-                self.train_commercial(fold_=fold_)
-            
             if 'residential' in self.model_used:
                 self.train_residential(fold_=fold_)
 
+            if 'commercial' in self.model_used:
+                self.train_commercial(fold_=fold_)
+            
     def save_model(self)->None:
         for type_model in self.model_used:
             
