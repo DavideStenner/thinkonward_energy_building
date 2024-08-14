@@ -37,10 +37,15 @@ class PreprocessInit(BaseInit):
         self.drop_hour_minute_list: list[int] = [
             hour_ + minute_/100 
             for hour_, minute_ in product(
+                range(14, 24), [0, 15, 30, 45]
+            )
+        ]
+        self.increment_hour_minute_list: list[int] = [
+            hour_ + minute_/100 
+            for hour_, minute_ in product(
                 range(3, 14), [0, 15, 30, 45]
             )
         ]
-
         
     def _initialize_utils(self) -> None:
         self.lazy_feature_list: list[pl.LazyFrame] = []
