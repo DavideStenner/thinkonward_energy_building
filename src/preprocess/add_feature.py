@@ -476,6 +476,67 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
         )
         return [max_profile, min_profile]
 
+    def __create_weekday_profile_consumption(self) -> list[pl.LazyFrame]:
+        #by hour and day
+        profile_consumption = (
+            self.base_data
+            .group_by(
+                'bldg_id', 'weeknum'
+            )
+            #find how many min/max for every hour in % and for every day
+            .agg(
+                [
+                    (
+                        pl.col('weekday')
+                        .filter(
+                            pl.col('daily_consumption') == pl.col('daily_consumption').max()
+                        )
+                        .unique()
+                        .alias('weekday_max')
+                    ),
+                    (
+                        pl.col('weekday')
+                        .filter(
+                            pl.col('daily_consumption') == pl.col('daily_consumption').min()
+                        )
+                        .unique()
+                        .alias('weekday_min')
+                    )
+                ]
+            )
+        )
+        max_profile = (
+            profile_consumption
+            .select('bldg_id', pl.col('weekday_max')).explode(['weekday_max'])
+            .group_by('bldg_id', 'weekday_max')
+            .agg(pl.len()/53)
+            .group_by('bldg_id').agg(
+                [
+                    pl.col('len').filter(pl.col('weekday_max')==weekday).alias(
+                        f'profile_max_weekday_{weekday}'
+                    )
+                    .first()
+                    for weekday in self.weekday_list
+                ]
+            )
+        )
+        min_profile = (
+            profile_consumption
+            .select('bldg_id', pl.col('weekday_min')).explode(['weekday_min'])
+            .group_by('bldg_id', 'weekday_min')
+            .agg(pl.len()/53)
+            .group_by('bldg_id').agg(
+                [
+                    pl.col('len').filter(pl.col('weekday_min')==weekday).alias(
+                        f'profile_min_weekday_{weekday}'
+                    )
+                    .first()
+                    for weekday in self.weekday_list
+                ]
+            )
+        )
+        return [max_profile, min_profile]
+
     def __create_holidays_utils(self) -> pl.LazyFrame:
  
         national_holidays = {
