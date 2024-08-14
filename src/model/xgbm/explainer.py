@@ -569,6 +569,15 @@ class XgbExplainer(XgbInit):
             'total_consumption_month_{month}',
             'total_consumption_week_{weeknum}',
             'average_robust_increment_{hour_minute}',
+            'average_hour_consumption_national_holiday_tou_{tou}',
+            'average_hour_consumption_state_holiday_tou_{tou}',
+            'total_consumption_season_{season}_vs_state',
+            'total_consumption_month_{month}_vs_state',
+            'total_consumption_weekday_{weekday}_vs_state',
+            'total_consumption_hour_{hour}_vs_state',
+            'average_robust_increment_weekday_{weekday}',
+            'average_robust_drop_weekday_{weekday}',
+            'average_robust_drop_{hour_minute}'
         ]
         feature_list = [
             replace_multi(x)
