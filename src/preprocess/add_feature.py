@@ -415,6 +415,67 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
         )
         return total_variation_consumptions
     
+    def __create_hour_profile_consumption(self) -> list[pl.LazyFrame]:
+        #by hour and day
+        profile_consumption = (
+            self.base_data
+            .group_by(
+                'bldg_id', 'day'
+            )
+            #find how many min/max for every hour in % and for every day
+            .agg(
+                [
+                    (
+                        pl.col('hour')
+                        .filter(
+                            pl.col('energy_consumption') == pl.col('energy_consumption').max()
+                        )
+                        .unique()
+                        .alias('hour_max')
+                    ),
+                    (
+                        pl.col('hour')
+                        .filter(
+                            pl.col('energy_consumption') == pl.col('energy_consumption').min()
+                        )
+                        .unique()
+                        .alias('hour_min')
+                    )
+                ]
+            )
+        )
+        max_profile = (
+            profile_consumption
+            .select('bldg_id', pl.col('hour_max')).explode(['hour_max'])
+            .group_by('bldg_id', 'hour_max')
+            .agg(pl.len()/365)
+            .group_by('bldg_id').agg(
+                [
+                    pl.col('len').filter(pl.col('hour_max')==hour).alias(
+                        f'profile_max_hour_{hour}'
+                    )
+                    .first()
+                    for hour in self.hour_list
+                ]
+            )
+        )
+        min_profile = (
+            profile_consumption
+            .select('bldg_id', pl.col('hour_min')).explode(['hour_min'])
+            .group_by('bldg_id', 'hour_min')
+            .agg(pl.len()/365)
+            .group_by('bldg_id').agg(
+                [
+                    pl.col('len').filter(pl.col('hour_min')==hour).alias(
+                        f'profile_min_hour_{hour}'
+                    )
+                    .first()
+                    for hour in self.hour_list
+                ]
+            )
+        )
+        return [max_profile, min_profile]
+
     def __create_holidays_utils(self) -> pl.LazyFrame:
  
         national_holidays = {
