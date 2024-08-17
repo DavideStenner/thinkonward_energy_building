@@ -1,9 +1,20 @@
 import numpy as np
+import lightgbm as lgb
 import xgboost as xgb
 
 from typing import Dict, Tuple
 from scipy.special import softmax
 from sklearn.metrics import f1_score
+
+def lgb_binary_f1_score(y_pred: np.ndarray, data: lgb.Dataset) -> Tuple[str, float, bool]:
+    y_true = data.get_label()
+    y_pred = y_pred >= 0.5
+    return 'f1', f1_score(y_true=y_true, y_pred=y_pred), True
+
+def lgb_multi_f1_score(y_pred: np.ndarray, data: lgb.Dataset) -> Tuple[str, float, bool]:
+    y_true = data.get_label()
+    y_pred = y_pred.argmax(axis=1)
+    return 'f1', f1_score(y_true=y_true, y_pred=y_pred, average='macro'), True
 
 
 def softmax_by_target(
