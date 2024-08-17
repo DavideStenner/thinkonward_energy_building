@@ -64,19 +64,20 @@ class PreprocessPipeline(BasePipeline, PreprocessImport, PreprocessAddFeature, P
                     .split('train_')[1]
                     .strip().upper()
                 )
-                dataset_label = (
-                    lazy_frame
-                    .collect()
+                dataset_label = lazy_frame.collect()
+                dataset_label_dummy = (
+                    dataset_label
                     .to_dummies(self.config_dict['TARGET_DICT'][current_target])
                 )
                 target_dict = self.__get_dummy_target_mapping(
                     self.config_dict['TARGET_DICT'][current_target],
-                    dataset_label.collect_schema().names()
+                    dataset_label_dummy.collect_schema().names()
                 )
                 mapper_dummy_target[current_target.lower()] = target_dict
                 
             else:
                 dataset_label = lazy_frame.collect()
+                dataset_label_dummy = dataset_label
                 
             self.preprocess_logger.info(f'saving {name_file}')
             (
@@ -88,11 +89,24 @@ class PreprocessPipeline(BasePipeline, PreprocessImport, PreprocessAddFeature, P
                 .write_parquet(
                 os.path.join(
                         self.config_dict['PATH_GOLD_PARQUET_DATA'],
+                        f'{name_file}_label.parquet'
+                    )
+                )
+            )
+            self.preprocess_logger.info(f'saving {name_file} dummy')
+            (
+                dataset_label_dummy
+                .join(
+                    self.data, 
+                    on=self.build_id, how='inner'
+                )
+                .write_parquet(
+                os.path.join(
+                        self.config_dict['PATH_GOLD_PARQUET_DATA'],
                         f'{name_file}.parquet'
                     )
                 )
             )
-        
         self.preprocess_logger.info(f'saving target mapper')
         with open(
             os.path.join(
