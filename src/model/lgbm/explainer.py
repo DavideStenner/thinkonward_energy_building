@@ -180,6 +180,9 @@ class LgbmExplainer(LgbmInit):
             feature_importances[['feature', 'average']]
             .sort_values(by='average', ascending=False)
         )
+        self.training_logger.info(
+            f"Model {type_model} top2 features are {', '.join(feature_importances['feature'].iloc[:2])}"
+        )
         #plain feature
         fig = plt.figure(figsize=(18,8))
         sns.barplot(data=feature_importances.head(50), x='average', y='feature')
