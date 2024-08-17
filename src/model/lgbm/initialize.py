@@ -20,11 +20,28 @@ class LgbmInit(ModelInit):
         self.inference: bool = False
         self.config_dict: dict[str, Any] = config_dict
         
-        self.model_used: list[str] = ['binary', 'commercial', 'residential']
+        self.model_used: list[str] = [
+            'building_stock_type', 
+            "in.comstock_building_type_group_com", "in.heating_fuel_com",
+            "in.hvac_category_com", "in.number_of_stories_com",
+            "in.ownership_type_com", "in.vintage_com",
+            "in.wall_construction_type_com", "in.tstat_clg_sp_f..f_com",
+            "in.tstat_htg_sp_f..f_com", "in.weekday_opening_time..hr_com",
+            "in.weekday_operating_hours..hr_com",
+            "in.bedrooms_res", "in.cooling_setpoint_res",
+            "in.heating_setpoint_res", "in.geometry_building_type_recs_res",
+            "in.geometry_floor_area_res", "in.geometry_foundation_type_res",
+            "in.geometry_wall_type_res", "in.heating_fuel_res",
+            "in.income_res", "in.roof_material_res",
+            "in.tenure_res", "in.vacancy_status_res",
+            "in.vintage_res"
+        ]
+        self.binary_model: list[str] = [
+            'building_stock_type', "in.tenure_res", "in.vacancy_status_res"
+        ]
         self.model_metric_used: list[str] = {
-            'binary': {'label': 'auc', 'maximize': True},
-            'commercial': {'label': 'f1', 'maximize': True},
-            'residential': {'label': 'f1', 'maximize': True},
+            target_: {'label': 'f1', 'maximize': True}
+            for target_ in self.model_used
         }
         self.experiment_path: str = os.path.join(
             config_dict['PATH_EXPERIMENT'],
@@ -71,65 +88,27 @@ class LgbmInit(ModelInit):
         
         self.get_categorical_columns(data_columns=data_columns)
         self.initialize_model_utils()
-        self.initialize_target_utils()
         self.get_model_file_name_dict()
-        self.get_target_mapper()
         self.get_target_col_list()
         
     def get_target_col_list(self) -> None:
-        self.target_dict: Dict[str, list[str]] = {}
-        
-        for current_model in self.model_used:
-            target_info: list[str] | str = self.config_dict['TARGET_DICT'][current_model.upper()]
-            
-            current_model_columns_list: pl.LazyFrame = (
-                pl.scan_parquet(
-                    os.path.join(
-                        self.config_dict['PATH_GOLD_PARQUET_DATA'],
-                        f'train_{current_model}.parquet'
-                    )
-                )
-                .collect_schema().names()
-            )
-            if isinstance(target_info, list):
-                target_list = [
-                    col for col in current_model_columns_list
-                    if any(
-                        [
-                            target_name in col
-                            for target_name in target_info
-                        ]
-                    )
-                ]
+        def get_category(x: str) -> str:
+            if x[-3:].lower() == 'res':
+                return 'residential'
+            elif x[-3:].lower() == 'com':
+                return 'commercial'
             else:
-                target_list = [target_info]
-        
-            self.target_dict[current_model] = target_list
-    
-    def get_target_mapper(self) -> None:
-        with open(
-            os.path.join(
-                self.config_dict['PATH_MAPPER_DATA'],
-                'target_mapper.json'
-            ), 'r'
-        ) as file_json:
-            self.mapper_dummy_target: Dict[str, Dict[str, list[int]]] = json.load(file_json)
+                return 'binary'
             
+        self.target_dict: Dict[str, list[str]] = self.config_dict['TARGET_DICT']
+        self.target_class_dict: Dict[str, list[str]] = {
+            col_name: get_category(col_name)
+            for col_name in self.model_used
+        }
     def initialize_logger(self) -> None:
         self.training_logger: logging.Logger = get_logger(
             file_name='training.txt', path_logger=self.experiment_path
         )
-
-    def initialize_target_utils(self) -> None:
-        #target mapper for residential/commercial
-        with open(
-            os.path.join(
-                self.config_dict['PATH_MAPPER_DATA'],
-                'target_mapper.json'
-            ), 'r'
-        ) as file_json:
-            self.target_mapper: Dict[str, list[int]] = json.load(file_json)
-        
         
     def initialize_model_utils(self) -> None:
         self.build_id: str = 'bldg_id'

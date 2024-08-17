@@ -26,8 +26,18 @@ if __name__=='__main__':
     preprocessor.begin_training()
         
     if (args.model == 'lgb') | (args.all_model):
-        raise NotImplementedError
+        from src.model.lgbm.pipeline import LgbmPipeline
+        
+        params_model, experiment_name = import_params(model='lgb')
     
+        trainer = LgbmPipeline(
+            experiment_name=experiment_name + "_lgb",
+            params_lgb=params_model,
+            config_dict=config_dict, data_columns=preprocessor.feature_list,
+            evaluate_shap=False,
+        )
+        trainer.train_explain()
+        
     elif (args.model == 'xgb') | (args.all_model):
         from src.model.xgbm.pipeline import XgbPipeline
 
