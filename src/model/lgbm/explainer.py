@@ -44,10 +44,25 @@ class LgbmExplainer(LgbmInit):
         plt.close(fig)
 
     def evaluate_score(self) -> None:    
+        final_score_dict: dict[str, list[float]] = {
+            'binary': [],
+            'commercial': [],
+            'residential': []
+        }
         for type_model in self.model_used:
-            self.__evaluate_single_model(type_model=type_model)
-    
-    def __evaluate_single_model(self, type_model: str) -> None:
+            best_score = self.__evaluate_single_model(type_model=type_model)
+            final_score_dict[self.target_class_dict[type_model]].append(best_score)
+        
+        final_score = (
+            final_score_dict['binary'][0] * 0.4 +
+            (
+                np.mean(final_score_dict['commercial']) * 0.5 +
+                np.mean(final_score_dict['residential']) * 0.5
+            ) * 0.6
+        )
+        print(f'\n\nFinal model pipeline {final_score:.6f}')
+
+    def __evaluate_single_model(self, type_model: str) -> float:
         metric_eval = self.model_metric_used[type_model]['label']
         metric_to_max = self.model_metric_used[type_model]['maximize']
         
@@ -134,7 +149,10 @@ class LgbmExplainer(LgbmInit):
             best_result=best_result, type_model=type_model, 
         )
         
+        return best_score_lgb
+    
     def get_feature_importance(self) -> None:
+        self.load_used_feature()
         for type_model in self.model_used:
             self.__get_single_feature_importance(type_model=type_model)
     
