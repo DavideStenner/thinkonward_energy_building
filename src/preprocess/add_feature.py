@@ -66,7 +66,7 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
         )
         return all_tou_consumption
 
-    def create_slice_day_aggregation(self) -> pl.LazyFrame:
+    def __create_slice_day_aggregation(self) -> pl.LazyFrame:
         """
         Create average daily consumption over
             - season, is_weekend
@@ -1159,49 +1159,24 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
     def create_feature(self) -> None:   
         self.create_utils_features()
         
-        self.lazy_feature_list.append(
-            self.__create_daily_aggregation()
-        )
-        self.lazy_feature_list.append(
-            self.__create_slice_hour_aggregation()
-        )
-        self.lazy_feature_list.append(
-            self.__create_total_consumptions()
-        )
-        self.lazy_feature_list.append(
-            self.create_slice_day_aggregation()
-        )
-        self.lazy_feature_list.append(
-            self.__create_hour_weeknum_aggregation()
-        )
-        self.lazy_feature_list.append(
-            self.__create_range_work_minutes_features()
-        )
-        self.lazy_feature_list.append(
-            self.__create_increment_minutes_features()
-        )
-        self.lazy_feature_list.append(
-            self.__create_increment_minutes_by_day_features()
-        )
-        self.lazy_feature_list.append(
-            self.__create_tou_holidays_feature()
-        )
-        self.lazy_feature_list.append(
-            self.__create_daily_holidays_feature()
-        )
-        self.lazy_feature_list.append(
-            self.__create_drop_minutes_features()
-        )
-        self.lazy_feature_list.append(
-            self.__create_drop_minutes_by_day_features()
-        )
-        self.lazy_feature_list.append(
-            self.__create_variation_respect_state()
-        )
-        self.lazy_feature_list.append(
-            self.__create_variation_respect_state_type_build()
-        )
-        #add list
+        #add single query
+        self.lazy_feature_list += [
+            self.__create_daily_aggregation(),
+            self.__create_slice_hour_aggregation(),
+            self.__create_total_consumptions(),
+            self.__create_slice_day_aggregation(),
+            self.__create_hour_weeknum_aggregation(),
+            self.__create_range_work_minutes_features(),
+            self.__create_increment_minutes_features(),
+            self.__create_increment_minutes_by_day_features(),
+            self.__create_tou_holidays_feature(),
+            self.__create_daily_holidays_feature(),
+            self.__create_drop_minutes_features(),
+            self.__create_drop_minutes_by_day_features(),
+            self.__create_variation_respect_state(),
+            #self.__create_variation_respect_state_type_build()
+        ]
+        #list of query
         self.lazy_feature_list += (
             self.__create_hour_profile_consumption() +
             self.__create_weekday_profile_consumption()
