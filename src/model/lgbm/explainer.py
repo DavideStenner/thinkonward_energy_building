@@ -1,3 +1,4 @@
+import re
 import os
 import shap
 import numpy as np
@@ -155,7 +156,104 @@ class LgbmExplainer(LgbmInit):
         self.load_used_feature()
         for type_model in self.model_used:
             self.__get_single_feature_importance(type_model=type_model)
-    
+            self.__get_feature_importance_by_category_feature(current_model=type_model)
+            
+    def __get_feature_importance_by_category_feature(self, current_model: str) -> None:
+        def replace_multi(x: str) -> str:
+            for string_ in [
+                r'{season}', r'{tou}', r'{month}',
+                r'{week}', r'{is_weekend}', r'{weekday}',
+                r'{hour}', r'{weeknum}', r'{hour_minute}'
+            ]:
+                x = x.replace(string_, r'\d+')
+            return x
+        
+        def get_first_if_any(x: list) -> any:
+            if len(x)>0:
+                return x[0]
+            else:
+                return None
+            
+        feature_importances = pd.read_excel(
+            os.path.join(
+                self.experiment_path_dict['feature_importance'].format(type=current_model),
+                'feature_importances.xlsx'
+            )
+        )
+        feature_list: list[int] = [
+            'average_hour_consumption_season_{season}_tou_{tou}',
+            'average_hour_consumption_month_{month}_tou_{tou}',
+            'average_hour_consumption_week_{week}_tou_{tou}',
+            'average_hour_consumption_season_{season}_is_weekend_{is_weekend}',
+            'average_hour_consumption_month_{month}_is_weekend_{is_weekend}',
+            'average_hour_consumption_week_{week}_is_weekend_{is_weekend}',
+            'average_daily_consumption_season_{season}_weekday_{weekday}',
+            'average_daily_consumption_month_{month}_weekday_{weekday}',
+            'average_hour_consumption_season_{season}',
+            'average_hour_consumption_month_{month}',
+            'average_hour_consumption_week_{week}',
+            'average_daily_consumption_season_{season}',
+            'average_daily_consumption_month_{month}',
+            'average_daily_consumption_week_{week}',
+            'total_average_consumption_weekday_{weekday}',
+            'total_average_consumption_hour_{hour}',
+            'total_consumption_season_{season}',
+            'total_consumption_month_{month}',
+            'total_consumption_week_{weeknum}',
+            'average_robust_increment_{hour_minute}',
+            'average_hour_consumption_national_holiday_tou_{tou}',
+            'average_hour_consumption_state_holiday_tou_{tou}',
+            'total_consumption_season_{season}_vs_state',
+            'total_consumption_month_{month}_vs_state',
+            'total_consumption_weekday_{weekday}_vs_state',
+            'total_consumption_hour_{hour}_vs_state',
+            'average_robust_increment_weekday_{weekday}',
+            'average_robust_drop_weekday_{weekday}',
+            'average_robust_drop_{hour_minute}',
+            'total_consumption_season_{season}_vs_state',
+            'total_consumption_month_{month}_vs_state',
+            'total_consumption_weekday_{weekday}_vs_state',
+            'total_consumption_hour_{hour}_vs_state',
+            'total_consumption_ever_vs_state',
+            'profile_max_hour_{hour}',
+            'profile_min_hour_{hour}'
+        ]
+        feature_list = [
+            replace_multi(x)
+            for x in feature_list
+        ]
+        feature_importances['feature_cluster'] = feature_importances['feature'].apply(
+            lambda x:
+                get_first_if_any(
+                    [
+                        pattern_ for pattern_ in feature_list
+                        if bool(re.match(pattern_, x))
+                    ]
+                )
+        )
+        feature_importances_cluster = (
+            feature_importances
+            .groupby('feature_cluster')['average']
+            .agg(
+                ['mean', 'min', 'max', 'count']
+            )
+            .sort_values('mean')
+            .reset_index()
+        )
+        self.training_logger.info(
+            f"Model {current_model} top2 features are {', '.join(feature_importances_cluster['feature_cluster'].iloc[:2])}"
+        )
+        (
+            feature_importances_cluster
+            .to_excel(
+                os.path.join(
+                    self.experiment_path_dict['feature_importance'].format(type=current_model),
+                    'feature_importances_clustered.xlsx'
+                ), 
+                index=False
+            )
+        )
+        
     def __get_single_feature_importance(self, type_model: str) -> None:
         best_result = self.load_best_result(
             type_model=type_model
