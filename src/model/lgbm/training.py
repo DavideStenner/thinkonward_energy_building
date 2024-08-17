@@ -56,6 +56,7 @@ class LgbmTrainer(ModelTrain, LgbmInit):
         params_lgb = self.params_lgb
         if target in self.binary_model:
             params_lgb['objective'] = 'binary'
+            params_lgb['num_class'] = 1
         else:
             params_lgb['objective'] = 'softmax'
             params_lgb['num_class'] = (
@@ -94,8 +95,7 @@ class LgbmTrainer(ModelTrain, LgbmInit):
 
         model.save_model(
             os.path.join(
-                self.experiment_path,
-                'binary',
+                self.experiment_type_path.format(type=target),
                 (
                     self.model_file_name_dict['model_list'][target]
                     .format(fold_=fold_)
