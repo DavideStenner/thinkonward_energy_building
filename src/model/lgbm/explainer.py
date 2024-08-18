@@ -237,7 +237,7 @@ class LgbmExplainer(LgbmInit):
             .agg(
                 ['mean', 'min', 'max', 'count']
             )
-            .sort_values('mean')
+            .sort_values('mean', ascending=False)
             .reset_index()
         )
         self.training_logger.info(
