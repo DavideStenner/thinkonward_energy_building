@@ -61,7 +61,7 @@ class LgbmExplainer(LgbmInit):
                 np.mean(final_score_dict['residential']) * 0.5
             ) * 0.6
         )
-        print(f'\n\nFinal model pipeline {final_score:.6f}')
+        self.training_logger.info(f'\n\nFinal model pipeline {final_score:.6f}\n\n\n')
 
     def __evaluate_single_model(self, type_model: str) -> float:
         metric_eval = self.model_metric_used[type_model]['label']
@@ -114,7 +114,7 @@ class LgbmExplainer(LgbmInit):
             best_epoch_lgb, f"std_{metric_eval}"
         ]
 
-        print(f'{type_model} Best epoch: {best_epoch_lgb}, CV-{metric_eval}: {best_score_lgb:.5f} ± {lgb_std:.5f}')
+        self.training_logger.info(f'{type_model} Best epoch: {best_epoch_lgb}, CV-{metric_eval}: {best_score_lgb:.5f} ± {lgb_std:.5f}')
 
         best_result = {
             'best_epoch': best_epoch_lgb+1,
@@ -241,7 +241,7 @@ class LgbmExplainer(LgbmInit):
             .reset_index()
         )
         self.training_logger.info(
-            f"Model {current_model} top2 features are {', '.join(feature_importances_cluster['feature_cluster'].iloc[:2])}"
+            f"Model {current_model} top2 features are {', '.join(feature_importances_cluster['feature_cluster'].iloc[:2])}\n"
         )
         (
             feature_importances_cluster
