@@ -9,6 +9,7 @@ data/gold_parquet_dataset/*
 data/other_dataset/*
 experiment/*
 config/params_*.json
+config/feature_cluster.json
 testing_data/*
 eda/*
 log/*
