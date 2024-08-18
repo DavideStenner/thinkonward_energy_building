@@ -728,6 +728,7 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
             self.minute_data
             .sort(self.build_id, 'timestamp')
             .with_columns(
+                (pl.col('timestamp').dt.hour() + pl.col('timestamp').dt.minute()/100).alias('hour_minute'),
                 pl.col('timestamp').dt.truncate('1d').alias('day'),
                 pl.col('timestamp').dt.month().alias('month'),
                 pl.col('timestamp').dt.hour().alias('hour'),
@@ -748,14 +749,6 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
         
         minutes_increment_features = (
             self.minute_data
-            .sort(self.build_id, 'timestamp')
-            .with_columns(
-                (pl.col('timestamp').dt.hour() + pl.col('timestamp').dt.minute()/100).alias('hour_minute'),
-                pl.col('timestamp').dt.month().alias('month'),
-                pl.col('timestamp').dt.hour().alias('hour'),
-                pl.col('timestamp').dt.week().alias('weeknum'),
-                pl.col('timestamp').dt.weekday().alias('weekday')
-            )
             .with_columns(
                 (
                     pl.col('energy_consumption')
@@ -830,14 +823,6 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
         
         minutes_increment_features = (
             self.minute_data
-            .sort(self.build_id, 'timestamp')
-            .with_columns(
-                (pl.col('timestamp').dt.hour() + pl.col('timestamp').dt.minute()/100).alias('hour_minute'),
-                pl.col('timestamp').dt.month().alias('month'),
-                pl.col('timestamp').dt.hour().alias('hour'),
-                pl.col('timestamp').dt.week().alias('weeknum'),
-                pl.col('timestamp').dt.weekday().alias('weekday')
-            )
             .with_columns(
                 (
                     pl.col('energy_consumption')
@@ -911,14 +896,6 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
         
         minutes_drop_features = (
             self.minute_data
-            .sort(self.build_id, 'timestamp')
-            .with_columns(
-                (pl.col('timestamp').dt.hour() + pl.col('timestamp').dt.minute()/100).alias('hour_minute'),
-                pl.col('timestamp').dt.month().alias('month'),
-                pl.col('timestamp').dt.hour().alias('hour'),
-                pl.col('timestamp').dt.week().alias('weeknum'),
-                pl.col('timestamp').dt.weekday().alias('weekday')
-            )
             .with_columns(
                 (
                     pl.col('energy_consumption')
@@ -992,14 +969,6 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
         
         minutes_drop_features = (
             self.minute_data
-            .sort(self.build_id, 'timestamp')
-            .with_columns(
-                (pl.col('timestamp').dt.hour() + pl.col('timestamp').dt.minute()/100).alias('hour_minute'),
-                pl.col('timestamp').dt.month().alias('month'),
-                pl.col('timestamp').dt.hour().alias('hour'),
-                pl.col('timestamp').dt.week().alias('weeknum'),
-                pl.col('timestamp').dt.weekday().alias('weekday')
-            )
             .with_columns(
                 (
                     pl.col('energy_consumption')
