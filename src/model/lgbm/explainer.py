@@ -155,11 +155,60 @@ class LgbmExplainer(LgbmInit):
     
     def get_feature_importance(self) -> None:
         self.load_used_feature()
+        result_list_clustered = []
+        
         for type_model in self.model_used:
             self.__get_single_feature_importance(type_model=type_model)
-            self.__get_feature_importance_by_category_feature(current_model=type_model)
-            
-    def __get_feature_importance_by_category_feature(self, current_model: str) -> None:
+            result_clustered = self.__get_feature_importance_by_category_feature(current_model=type_model)
+            result_clustered['target'] = type_model
+
+            result_list_clustered.append(result_clustered)
+
+        #average value
+        result_all_clustered_mean = (
+            pd.concat(result_list_clustered, axis=0, ignore_index=True)
+            .pivot(
+                index=['feature_cluster', 'count'],
+                columns='target', values='mean'
+            )
+            .reset_index()
+        )
+        result_all_clustered_mean['average_imp'] = result_all_clustered_mean[
+            [col for col in result_all_clustered_mean.columns if col not in ['feature_cluster', 'count']]
+        ].mean(axis=1)
+        
+        (
+            result_all_clustered_mean
+            .to_excel(
+                os.path.join(
+                    self.experiment_path,
+                    'all_feature_importance_clustered.xlsx'
+                ), 
+                index=False
+            )
+        )
+
+        #rank
+        result_all_clustered = (
+            pd.concat(result_list_clustered, axis=0, ignore_index=True)
+            .pivot(
+                index=['feature_cluster', 'count'],
+                columns='target', values='rank'
+            )
+            .reset_index()
+        )
+        result_all_clustered['average_rank'] = result_all_clustered[
+            [col for col in result_all_clustered.columns if col not in ['feature_cluster', 'count']]
+        ].mean(axis=1)
+        
+        result_all_clustered.to_excel(
+            os.path.join(
+                self.experiment_path,
+                'all_feature_importance_clustered_rank.xlsx'
+            ), 
+            index=False
+        )
+    def __get_feature_importance_by_category_feature(self, current_model: str) -> pd.DataFrame:
         def replace_multi(x: str) -> str:
             for string_ in [
                 r'{season}', r'{tou}', r'{month}',
@@ -218,7 +267,12 @@ class LgbmExplainer(LgbmInit):
                 index=False
             )
         )
-        
+        feature_importances_cluster = (
+            feature_importances_cluster[['feature_cluster', 'count', 'mean']]
+            .reset_index(names='rank')
+        )
+        return feature_importances_cluster
+    
     def __get_single_feature_importance(self, type_model: str) -> None:
         best_result = self.load_best_result(
             type_model=type_model
