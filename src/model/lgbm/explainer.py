@@ -167,11 +167,12 @@ class LgbmExplainer(LgbmInit):
                 r'{hour}', r'{weeknum}', r'{hour_minute}'
             ]:
                 x = x.replace(string_, r'\d+')
-            return x
+            
+            return r'^' + x + r'$'
         
         def get_first_if_any(x: list) -> any:
             if len(x)>0:
-                return x[0]
+                return x[0][1:-1]
             else:
                 return None
             
