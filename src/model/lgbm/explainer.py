@@ -208,17 +208,7 @@ class LgbmExplainer(LgbmInit):
             ), 
             index=False
         )
-    def __get_feature_importance_by_category_feature(self, current_model: str) -> pd.DataFrame:
-        def replace_multi(x: str) -> str:
-            for string_ in [
-                r'{season}', r'{tou}', r'{month}',
-                r'{week}', r'{is_weekend}', r'{weekday}',
-                r'{hour}', r'{weeknum}', r'{hour_minute}'
-            ]:
-                x = x.replace(string_, r'\d+')
-            
-            return r'^' + x + r'$'
-        
+    def __get_feature_importance_by_category_feature(self, current_model: str) -> pd.DataFrame:       
         def get_first_if_any(x: list) -> any:
             if len(x)>0:
                 return x[0][1:-1]
@@ -231,16 +221,15 @@ class LgbmExplainer(LgbmInit):
                 'feature_importances.xlsx'
             )
         )
-        feature_list: list[int] = import_config(config_path='config/feature_cluster.json')['feature_list']
-        feature_list = [
-            replace_multi(x)
-            for x in feature_list
+        feature_list_cluster: list[int] = [
+            r'^' + re.sub(r'\d+', r'\\d+', x) + r'$'
+            for x in self.feature_list
         ]
         feature_importances['feature_cluster'] = feature_importances['feature'].apply(
             lambda x:
                 get_first_if_any(
                     [
-                        pattern_ for pattern_ in feature_list
+                        pattern_ for pattern_ in feature_list_cluster
                         if bool(re.match(pattern_, x))
                     ]
                 )
