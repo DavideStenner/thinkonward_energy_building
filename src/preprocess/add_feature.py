@@ -527,6 +527,67 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
         )
         return total_variation_consumptions
 
+    def __create_hourminute_profile_consumption(self) -> list[pl.LazyFrame]:
+        #by hour and day
+        profile_consumption = (
+            self.minute_data
+            .group_by(
+                'bldg_id', 'day'
+            )
+            #find how many min/max for every hour in % and for every day
+            .agg(
+                [
+                    (
+                        pl.col('hour_minute')
+                        .filter(
+                            pl.col('energy_consumption') == pl.col('energy_consumption').max()
+                        )
+                        .unique()
+                        .alias('hour_minute_max')
+                    ),
+                    (
+                        pl.col('hour_minute')
+                        .filter(
+                            pl.col('energy_consumption') == pl.col('energy_consumption').min()
+                        )
+                        .unique()
+                        .alias('hour_minute_min')
+                    )
+                ]
+            )
+        )
+        max_profile = (
+            profile_consumption
+            .select('bldg_id', pl.col('hour_minute_max')).explode(['hour_minute_max'])
+            .group_by('bldg_id', 'hour_minute_max')
+            .agg(pl.len()/365)
+            .group_by('bldg_id').agg(
+                [
+                    pl.col('len').filter(pl.col('hour_minute_max')==hour_minute).alias(
+                        f'profile_max_hour_minute_{hour_minute}'
+                    )
+                    .first()
+                    for hour_minute in self.hour_minute_list
+                ]
+            )
+        )
+        min_profile = (
+            profile_consumption
+            .select('bldg_id', pl.col('hour_minute_min')).explode(['hour_minute_min'])
+            .group_by('bldg_id', 'hour_minute_min')
+            .agg(pl.len()/365)
+            .group_by('bldg_id').agg(
+                [
+                    pl.col('len').filter(pl.col('hour_minute_min')==hour_minute).alias(
+                        f'profile_min_hour_minute_{hour_minute}'
+                    )
+                    .first()
+                    for hour_minute in self.hour_minute_list
+                ]
+            )
+        )
+        return [max_profile, min_profile]
+    
     def __create_hour_profile_consumption(self) -> list[pl.LazyFrame]:
         #by hour and day
         profile_consumption = (
@@ -586,7 +647,51 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
                 ]
             )
         )
-        return [max_profile, min_profile]
+
+        difference_profile = (
+            self.base_data
+            .with_columns(
+                (
+                    (pl.col('energy_consumption') - pl.col('energy_consumption').mean().over('bldg_id', 'day'))
+                    .alias('energy_vs_mean')
+                ),
+                (
+                    (pl.col('energy_consumption') - pl.col('energy_consumption').min().over('bldg_id', 'day'))
+                    .alias('energy_vs_min')
+                ),
+                (
+                    (pl.col('energy_consumption') - pl.col('energy_consumption').max().over('bldg_id', 'day'))
+                    .alias('energy_vs_max')
+                )
+            )
+            .select('bldg_id', 'hour', 'energy_vs_mean', 'energy_vs_min', 'energy_vs_max')
+            .group_by('bldg_id', 'hour')
+            .agg(
+                [
+                    pl.col(col).mean()
+                    for col in ['energy_vs_mean', 'energy_vs_min', 'energy_vs_max']
+                ]
+            )
+            .group_by('bldg_id')
+            .agg(
+                [
+                    (
+                        pl.col(col_name)
+                        .filter(pl.col('hour')==hour)
+                        .first()
+                        .alias(
+                            f'profile_{col_name}_hour_{hour}'
+                        )
+                    )
+                    for col_name, hour in product(
+                        ['energy_vs_mean', 'energy_vs_min', 'energy_vs_max'],
+                        self.hour_list
+                    )
+                ]
+            )
+        )
+
+        return [max_profile, min_profile, difference_profile]
 
     def __create_weekday_profile_consumption(self) -> list[pl.LazyFrame]:
         #by hour and day
@@ -647,7 +752,51 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
                 ]
             )
         )
-        return [max_profile, min_profile]
+
+        difference_profile = (
+            self.base_data
+            .with_columns(
+                (
+                    (pl.col('daily_consumption') - pl.col('daily_consumption').mean().over('bldg_id', 'weeknum'))
+                    .alias('daily_energy_vs_mean')
+                ),
+                (
+                    (pl.col('daily_consumption') - pl.col('daily_consumption').min().over('bldg_id', 'weeknum'))
+                    .alias('daily_energy_vs_min')
+                ),
+                (
+                    (pl.col('daily_consumption') - pl.col('daily_consumption').max().over('bldg_id', 'weeknum'))
+                    .alias('daily_energy_vs_max')
+                )
+            )
+            .select('bldg_id', 'weekday', 'daily_energy_vs_mean', 'daily_energy_vs_min', 'daily_energy_vs_max')
+            .group_by('bldg_id', 'weekday')
+            .agg(
+                [
+                    pl.col(col).mean()
+                    for col in ['daily_energy_vs_mean', 'daily_energy_vs_min', 'daily_energy_vs_max']
+                ]
+            )
+            .group_by('bldg_id')
+            .agg(
+                [
+                    (
+                        pl.col(col_name)
+                        .filter(pl.col('weekday')==weekday)
+                        .first()
+                        .alias(
+                            f'profile_{col_name}_weekday_{weekday}'
+                        )
+                    )
+                    for col_name, weekday in product(
+                        ['daily_energy_vs_mean', 'daily_energy_vs_min', 'daily_energy_vs_max'],
+                        self.weekday_list
+                    )
+                ]
+            )
+        )
+
+        return [max_profile, min_profile, difference_profile]
 
     def __create_holidays_utils(self) -> pl.LazyFrame:
  
@@ -1148,6 +1297,7 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
         #list of query
         self.lazy_feature_list += (
             self.__create_hour_profile_consumption() +
+            self.__create_hourminute_profile_consumption() +
             self.__create_weekday_profile_consumption()
         )
 
