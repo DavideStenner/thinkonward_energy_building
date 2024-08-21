@@ -9,7 +9,7 @@ from sklearn.metrics import f1_score
 def lgb_binary_f1_score(y_pred: np.ndarray, data: lgb.Dataset) -> Tuple[str, float, bool]:
     y_true = data.get_label()
     y_pred = y_pred >= 0.5
-    return 'f1', f1_score(y_true=y_true, y_pred=y_pred), True
+    return 'f1', f1_score(y_true=y_true, y_pred=y_pred, average='macro'), True
 
 def lgb_multi_f1_score(y_pred: np.ndarray, data: lgb.Dataset) -> Tuple[str, float, bool]:
     y_true = data.get_label()
