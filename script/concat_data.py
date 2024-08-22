@@ -8,7 +8,7 @@ if __name__ == '__main__':
     
     from tqdm import tqdm
     from typing import Dict
-    from src.utils.dtype import get_mapper_categorical, remap_category
+    from src.utils.dtype import get_mapper_categorical, remap_category, correct_ordinal_categorical
     from src.utils.import_utils import import_config
     from src.utils.logging_utils import get_logger
             
@@ -36,7 +36,7 @@ if __name__ == '__main__':
     train_label, mapper_train_label = get_mapper_categorical(
         config_dict=config_dict, data=train_label, logger=logger
     )
-    mapper_dataset['train_label'] = mapper_train_label
+    mapper_dataset['train_label'] = correct_ordinal_categorical(mapper_train_label)
     
     train_label.sink_parquet(
         os.path.join(
