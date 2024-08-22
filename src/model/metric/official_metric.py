@@ -17,6 +17,11 @@ def lgb_multi_f1_score(y_pred: np.ndarray, data: lgb.Dataset) -> Tuple[str, floa
     return 'f1', f1_score(y_true=y_true, y_pred=y_pred, average='macro'), True
 
 
+def lgb_regression_f1_score(y_pred: np.ndarray, data: lgb.Dataset) -> Tuple[str, float, bool]:
+    y_true = data.get_label()
+    y_pred = np.clip(np.round(y_pred), 0, None)
+    return 'f1', f1_score(y_true=y_true, y_pred=y_pred, average='macro'), True
+
 def softmax_by_target(
         target_position_list: list[int], y_pred: np.ndarray
     ) -> np.ndarray:
