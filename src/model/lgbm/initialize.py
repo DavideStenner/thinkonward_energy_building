@@ -39,6 +39,15 @@ class LgbmInit(ModelInit):
         self.binary_model: list[str] = [
             'building_stock_type', "in.tenure_res", "in.vacancy_status_res"
         ]
+        self.ordinal_model: list[str] = [
+            "in.number_of_stories_com", "in.vintage_com",
+            "in.weekday_opening_time…hr_com", "in.weekday_operating_hours…hr_com",
+            "in.bedrooms_res", "in.cooling_setpoint_res",
+            "in.heating_setpoint_res", "in.geometry_floor_area_res",
+            "in.income_res", "in.vintage_res",
+            "in.tstat_clg_sp_f…f_com", "in.tstat_htg_sp_f…f_com"
+        ]
+        self.model_used = self.ordinal_model
         self.model_metric_used: list[str] = {
             target_: {'label': 'f1', 'maximize': True}
             for target_ in self.model_used
