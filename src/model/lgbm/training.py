@@ -9,7 +9,7 @@ from typing import Tuple, Dict
 
 from src.base.model.training import ModelTrain
 from src.model.lgbm.initialize import LgbmInit
-from src.model.metric.official_metric import lgb_multi_f1_score, lgb_binary_f1_score
+from src.model.metric.official_metric import lgb_multi_f1_score, lgb_binary_f1_score, lgb_regression_f1_score
 
 class LgbmTrainer(ModelTrain, LgbmInit):
     def _init_train(self) -> None:
@@ -57,6 +57,10 @@ class LgbmTrainer(ModelTrain, LgbmInit):
         if target in self.binary_model:
             params_lgb['objective'] = 'binary'
             params_lgb['num_class'] = 1
+            feval = lgb_binary_f1_score
+        elif target in self.ordinal_model:
+            params_lgb['objective'] = 'regression'
+            feval = lgb_regression_f1_score
         else:
             params_lgb['objective'] = 'softmax'
             params_lgb['num_class'] = (
@@ -66,6 +70,7 @@ class LgbmTrainer(ModelTrain, LgbmInit):
                 .collect()
                 .item()
             )
+            feval = lgb_multi_f1_score
 
         progress = {}
 
@@ -87,10 +92,7 @@ class LgbmTrainer(ModelTrain, LgbmInit):
             valid_sets=[test_matrix],
             valid_names=['valid'],
             callbacks=callbacks_list,
-            feval=(
-                lgb_binary_f1_score if target in self.binary_model
-                else lgb_multi_f1_score
-            )
+            feval=feval
         )
 
         model.save_model(
