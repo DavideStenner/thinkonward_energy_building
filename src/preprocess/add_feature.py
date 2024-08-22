@@ -122,6 +122,37 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
         )
         return all_day_consumption
     
+    def __create_pivoted_information(self) -> pl.LazyFrame:
+        """
+        Create pivot hour, day info over
+            - month
+            - year
+
+        Returns:
+            pl.LazyFrame: query
+        """
+        pivoted_hour = (
+            self.base_data
+            .group_by(
+                'bldg_id',
+            )
+            .agg(
+                [
+                    (
+                        pl.col('energy_consumption')
+                        .filter(
+                            (pl.col('month')==month) &
+                            (pl.col('hour')==hour)
+                        )
+                        .mean()
+                        .alias(f'average_consumption_hour_{hour}_over_month_{month}')
+                    )
+                    for hour, month in product(self.hour_list, self.month_list)
+                ]
+            )
+        )
+        return pivoted_hour
+
     def __create_hour_weeknum_aggregation(self) -> pl.LazyFrame:
         """
         Create average daily consumption over
@@ -887,7 +918,197 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
         )
         
         self.__create_holidays_utils()
-        
+    
+    def __create_past_future_difference_hour(self) -> list[pl.LazyFrame]:
+        """use minutes feature and aggregates
+
+
+        Returns:
+            pl.LazyFrame: query
+        """
+        base_transformation = (
+            self.base_data
+            .with_columns(
+                (
+                    pl.col('energy_consumption')
+                    .rolling_mean(window_size=4)
+                    .over(self.build_id)
+                    .alias('past_hour_energy_consumption')
+                ),
+                (
+                    pl.col('energy_consumption')
+                    .rolling_mean(window_size=4)
+                    .shift(-5)
+                    .over(self.build_id)
+                    .alias('future_hour_energy_consumption')
+                )
+            )
+            .with_columns(
+                (
+                    (pl.col('future_hour_energy_consumption') - pl.col('past_hour_energy_consumption'))
+                    .alias('difference_energy_consumption')
+                )
+            )
+        )
+        hour_rangework_features = (
+            base_transformation
+            .group_by(
+                self.build_id, 'month', 'is_weekend', 'day'
+            )
+            #calculate range work
+            .agg(
+                #opening time has more consume than before
+                pl.col('timestamp').filter(
+                    (
+                        pl.col('difference_energy_consumption') == (
+                            pl.col('difference_energy_consumption')
+                            .filter(
+                                #only between 3-13, 
+                                (pl.col('hour')>=3) &
+                                (pl.col('hour')<=13)
+                            )
+                        ).max()
+                    ) &
+                    (pl.col('hour')>=3) &
+                    (pl.col('hour')<=13)
+                ).min().alias('time_begin'),
+                #opening time has less consume than before
+                pl.col('timestamp').filter(
+                    (
+                        pl.col('difference_energy_consumption') == (
+                            pl.col('difference_energy_consumption')
+                            .filter(
+                                #after 3, 
+                                pl.col('hour')>=6
+                            )
+                        ).min()
+                    ) &
+                    (pl.col('hour')>=6)
+                ).max().alias('time_end'),
+                #opening time has more consume than before
+                pl.col('difference_energy_consumption').filter(
+                    (
+                        pl.col('difference_energy_consumption') == (
+                            pl.col('difference_energy_consumption')
+                            .filter(
+                                #only between 3-13, 
+                                (pl.col('hour')>=3) &
+                                (pl.col('hour')<=13)
+                            )
+                        ).max()
+                    ) &
+                    (pl.col('hour')>=3) &
+                    (pl.col('hour')<=13)
+                ).first().alias('drop_time_begin'),
+                #opening time has less consume than before
+                pl.col('difference_energy_consumption').filter(
+                    (
+                        pl.col('difference_energy_consumption') == (
+                            pl.col('difference_energy_consumption')
+                            .filter(
+                                #after 3, 
+                                pl.col('hour')>=6
+                            )
+                        ).min()
+                    ) &
+                    (pl.col('hour')>=6)
+                ).last().alias('drop_time_end'),
+            )
+            .with_columns(
+                (pl.col('time_end')-pl.col('time_begin')).dt.total_minutes().alias('range_work')
+            )
+            .group_by(
+                self.build_id, 'month', 'is_weekend'
+            )
+            .agg(
+                pl.col('drop_time_begin').mean(),
+                pl.col('drop_time_end').mean(),
+                pl.col('range_work').mean()
+            )
+            #min over month
+            .group_by(
+                self.build_id
+            )
+            .agg(
+                [
+                    (
+                        pl.col('drop_time_end')
+                        .filter(
+                            (pl.col('month')==month) &
+                            (pl.col('is_weekend')==is_wekeend)
+                        )
+                        .mean()
+                        .alias(f'average_drop_time_end_{month}_is_wekeend_{is_wekeend}')
+                    )
+                    for month, is_wekeend in product(
+                        self.month_list,
+                        [0, 1]
+                    )
+                ] +
+                [
+                    (
+                        pl.col('drop_time_begin')
+                        .filter(
+                            (pl.col('month')==month) &
+                            (pl.col('is_weekend')==is_wekeend)
+                        )
+                        .mean()
+                        .alias(f'average_drop_time_begin_{month}_is_wekeend_{is_wekeend}')
+                    )
+                    for month, is_wekeend in product(
+                        self.month_list,
+                        [0, 1]
+                    )
+                ] +
+                [
+                    (
+                        pl.col('range_work')
+                        .filter(
+                            (pl.col('month')==month) &
+                            (pl.col('is_weekend')==is_wekeend)
+                        )
+                        .mean()
+                        .alias(f'average_range_work_{month}_is_wekeend_{is_wekeend}')
+                    )
+                    for month, is_wekeend in product(
+                        self.month_list,
+                        [0, 1]
+                    )
+                ]
+            )
+        )
+
+        hour_drop_features = (
+            base_transformation
+            .filter(
+                (pl.col('weekday')<=5)
+            )
+            .group_by(
+                self.build_id, 'month', 'hour'
+            )
+            .agg(
+                pl.col('difference_energy_consumption').mean()
+            )
+            .group_by(
+                self.build_id
+            )
+            .agg(
+                [
+                    (
+                        pl.col('difference_energy_consumption')
+                        .filter(
+                            (pl.col('month')==month)&
+                            (pl.col('hour')==hour)
+                        )
+                        .mean()
+                        .alias(f'average_difference_energy_consumption_{month}_{hour}')
+                    )
+                    for month, hour in product(self.month_list, self.hour_list)
+                ]
+            )
+        )
+        return [hour_rangework_features, hour_drop_features]
+
     def __create_increment_minutes_features(self) -> pl.LazyFrame:
         """use minutes feature and aggregates
 
@@ -1292,13 +1513,15 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
             self.__create_drop_minutes_features(),
             self.__create_drop_minutes_by_day_features(),
             self.__create_variation_respect_state(),
+            self.__create_pivoted_information(),
             #self.__create_variation_respect_state_type_build()
         ]
         #list of query
         self.lazy_feature_list += (
             self.__create_hour_profile_consumption() +
             self.__create_hourminute_profile_consumption() +
-            self.__create_weekday_profile_consumption()
+            self.__create_weekday_profile_consumption() +
+            self.__create_past_future_difference_hour()
         )
 
     def merge_all(self) -> None:
