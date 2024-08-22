@@ -8,7 +8,7 @@ import seaborn as sns
 import lightgbm as lgb
 import matplotlib.pyplot as plt
 
-from typing import Union, Tuple
+from typing import Union, Tuple, Dict
 from itertools import chain
 from src.model.lgbm.initialize import LgbmInit
 from src.utils.import_utils import import_config
@@ -51,8 +51,10 @@ class LgbmExplainer(LgbmInit):
             'commercial': [],
             'residential': []
         }
+        score_dict: Dict[str, float] = {}
         for type_model in self.model_used:
             best_score = self.__evaluate_single_model(type_model=type_model)
+            score_dict[type_model] = best_score
             final_score_dict[self.target_class_dict[type_model]].append(best_score)
         
         final_score = (
@@ -63,6 +65,49 @@ class LgbmExplainer(LgbmInit):
             ) * 0.6
         )
         self.training_logger.info(f'\n\nFinal model pipeline {final_score:.6f}\n\n\n')
+        self.__save_final_score(score_dict=score_dict)
+        
+    def __save_final_score(self, score_dict: Dict[str, float]) -> None:
+        base_score = pd.read_excel(
+            os.path.join(
+                self.config_dict['PATH_OTHER_DATA'],
+                'baseline.xlsx'
+            )
+        )
+        base_score['new'] = base_score['feature'].map(score_dict)
+        base_score['delta'] = base_score['new'] - base_score['baseline']
+        
+        agg_base_score = pd.DataFrame(
+            {
+                'Model': ['baseline', 'new'],
+                'COM': [
+                    base_score.loc[base_score['Type'] == 'COM', 'baseline'].mean(),
+                    base_score.loc[base_score['Type'] == 'COM', 'new'].mean(),                    
+                ],
+                'RES': [
+                    base_score.loc[base_score['Type'] == 'RES', 'baseline'].mean(),
+                    base_score.loc[base_score['Type'] == 'RES', 'new'].mean(),                    
+                ],
+                'TYPE': [
+                    base_score.loc[base_score['Type'] == '-', 'baseline'].mean(),
+                    base_score.loc[base_score['Type'] == '-', 'new'].mean(),                    
+                ]
+            }
+        )
+        agg_base_score['AVG_RES_COM'] = (agg_base_score['COM'] + agg_base_score['RES'])/2
+        agg_base_score['TYPE_TOTAL'] = agg_base_score['TYPE'] * 0.4
+        agg_base_score['RES_COM_TOTAL'] = agg_base_score['AVG_RES_COM'] * 0.6
+        agg_base_score['TOTAL'] = agg_base_score['TYPE_TOTAL'] + agg_base_score['RES_COM_TOTAL']
+        
+        with pd.ExcelWriter(
+            os.path.join(
+                self.experiment_path,
+                'final_score.xlsx'
+            )
+        ) as writer:
+            
+            agg_base_score.to_excel(writer, sheet_name='agg', index=False)
+            base_score.to_excel(writer, sheet_name='detail', index=False)
 
     def __evaluate_single_model(self, type_model: str) -> float:
         metric_eval = self.model_metric_used[type_model]['label']
