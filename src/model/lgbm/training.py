@@ -58,9 +58,6 @@ class LgbmTrainer(ModelTrain, LgbmInit):
             params_lgb['objective'] = 'binary'
             params_lgb['num_class'] = 1
             feval = lgb_binary_f1_score
-        elif target in self.ordinal_model:
-            params_lgb['objective'] = 'regression'
-            feval = lgb_regression_f1_score
         else:
             params_lgb['objective'] = 'softmax'
             params_lgb['num_class'] = (
