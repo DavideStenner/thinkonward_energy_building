@@ -47,7 +47,6 @@ class LgbmInit(ModelInit):
             "in.income_res", "in.vintage_res",
             "in.tstat_clg_sp_f..f_com", "in.tstat_htg_sp_f..f_com"
         ]
-        self.model_used = self.ordinal_model
         self.model_metric_used: list[str] = {
             target_: {'label': 'f1', 'maximize': True}
             for target_ in self.model_used
