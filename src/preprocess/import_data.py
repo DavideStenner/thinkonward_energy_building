@@ -16,6 +16,12 @@ class PreprocessImport(BaseImport, PreprocessInit):
                 self.config_dict[f'{stage_file}_FEATURE_HOUR_FILE_NAME']
             )
         )
+        self.economic_data: pl.LazyFrame = pl.scan_parquet(
+            os.path.join(
+                self.config_dict['PATH_SILVER_PARQUET_DATA'],
+                'macro_economics_data.parquet'
+            )
+        )
         self.minute_data: pl.LazyFrame = pl.scan_parquet(
             os.path.join(
                 self.config_dict['PATH_SILVER_PARQUET_DATA'],

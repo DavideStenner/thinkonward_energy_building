@@ -104,6 +104,7 @@ class PreprocessInit(BaseInit):
         )
     def _initialize_empty_dataset(self) -> None:
         self.base_data: Union[pl.LazyFrame, pl.DataFrame]
+        self.economic_data: Union[pl.LazyFrame, pl.DataFrame]
         self.minute_data: Union[pl.LazyFrame, pl.DataFrame]
         self.label_data: Union[pl.LazyFrame, pl.DataFrame]
         self.data: Union[pl.LazyFrame, pl.DataFrame]

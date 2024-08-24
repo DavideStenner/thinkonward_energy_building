@@ -1536,3 +1536,10 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
                 )
             )
 
+        self.data = (
+            self.data
+            .join(
+                self.economic_data,
+                on='state', how='left'
+            )
+        )
