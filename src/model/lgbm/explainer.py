@@ -114,7 +114,7 @@ class LgbmExplainer(LgbmInit):
         metric_to_max = self.model_metric_used[type_model]['maximize']
         
         #load feature list
-        self.load_used_feature()
+        self.load_used_feature(target=type_model)
         
         # Find best epoch
         progress_list = self.load_progress_list(

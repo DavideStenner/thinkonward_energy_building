@@ -30,10 +30,6 @@ class LgbmTrainer(ModelTrain, LgbmInit):
         ]
         self.training_logger.info(f'Using {len(self.categorical_col_list)} categorical features')
 
-        #save feature list locally for later
-        self.save_used_feature()
-        self.save_used_categorical_feature()
-
     def access_fold(self, fold_: int, current_model: str) -> pl.LazyFrame:
         fold_data = (
             pl.scan_parquet(
@@ -159,13 +155,18 @@ class LgbmTrainer(ModelTrain, LgbmInit):
         
         self._init_train()
         
-        for fold_ in range(self.n_fold):
-            self.training_logger.info(f'\n\nStarting fold {fold_}\n\n\n')
-            self.training_logger.info('Collecting dataset')
-            
-            for target_ in self.model_used:
-                self.train_target(fold_=fold_, target=target_)
+        for target_ in self.model_used:
+            #save feature list locally for later
+            self.save_used_feature(target=target_, feature_list=self.feature_list)
+            self.save_used_categorical_feature(target=target_)
+            self.training_logger.info(f'Start {target_} with {len(self.feature_list)} features')
 
+            for fold_ in range(self.n_fold):
+                self.training_logger.info(f'\n\nStarting fold {fold_}\n\n\n')
+                self.training_logger.info('Collecting dataset')
+        
+                self.train_target(fold_=fold_, target=target_)
+            
     def save_model(self)->None:
         for type_model in self.model_used:
             

@@ -276,33 +276,33 @@ class LgbmInit(ModelInit):
             for fold_ in range(self.n_fold)
         ]    
             
-    def save_used_feature(self) -> None:
+    def save_used_feature(self, target: str, feature_list: list[str]) -> None:
         with open(
             os.path.join(
-                self.experiment_path,
+                self.experiment_type_path.format(type=target),
                 'used_feature.txt'
             ), 'w'
         ) as file:
             json.dump(
                 {
-                    'feature_model': self.feature_list
+                    'feature_model': feature_list
                 }, 
                 file
             )
     
-    def load_used_categorical_feature(self) -> None:
+    def load_used_categorical_feature(self, target: str) -> None:
         with open(
             os.path.join(
-                self.experiment_path,
+                self.experiment_type_path.format(type=target),
                 'used_categorical_feature.txt'
             ), 'r'
         ) as file:
             self.categorical_col_list = json.load(file)['categorical_feature']
             
-    def save_used_categorical_feature(self) -> None:
+    def save_used_categorical_feature(self, target: str) -> None:
         with open(
             os.path.join(
-                self.experiment_path,
+                self.experiment_type_path.format(type=target),
                 'used_categorical_feature.txt'
             ), 'w'
         ) as file:
@@ -313,10 +313,10 @@ class LgbmInit(ModelInit):
                 file
             )
 
-    def load_used_feature(self) -> None:
+    def load_used_feature(self, target: str) -> None:
         with open(
             os.path.join(
-                self.experiment_path,
+                self.experiment_type_path.format(type=target),
                 'used_feature.txt'
             ), 'r'
         ) as file:
