@@ -154,13 +154,13 @@ class LgbmInit(ModelInit):
                 if not os.path.isdir(dir_path):
                     os.makedirs(dir_path)
 
-    def load_model(self) -> None: 
-        self.load_used_feature()
-        self.load_used_categorical_feature()
-        self.load_best_result()
+    def load_model(self, target: str) -> None: 
+        self.load_used_feature(target=target)
+        self.load_used_categorical_feature(target=target)
+        self.load_best_result(target=target)
         self.load_params()
         
-        self.load_model_list()
+        self.load_pickle_model_list(type_model=target)
     
     def get_model_file_name_dict(self) -> None:
         self.model_file_name_dict: dict[str, str] =  {

@@ -7,4 +7,9 @@ if __name__=='__main__':
     pnl_preprocessor = PreprocessPipeline(
         config_dict=config_dict, 
     )
+    #train datasets
     pnl_preprocessor()
+    
+    #also test set
+    pnl_preprocessor.begin_inference()
+    pnl_preprocessor.preprocess_inference()

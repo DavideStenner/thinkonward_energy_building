@@ -146,6 +146,12 @@ class PreprocessPipeline(BasePipeline, PreprocessImport, PreprocessAddFeature, P
                     
         print('Collecting test....')
         self.data: pl.DataFrame = self.data.collect()
+        self.data.write_parquet(
+            os.path.join(
+                self.config_dict['PATH_GOLD_PARQUET_DATA'],
+                f'test_data.parquet'
+            )
+        )
         _ = gc.collect()
 
     def preprocess_train(self) -> None:
@@ -181,9 +187,9 @@ class PreprocessPipeline(BasePipeline, PreprocessImport, PreprocessAddFeature, P
         
         self.import_all()
 
-    def __call__(self, subset_feature: list[str] = None) -> None:
+    def __call__(self) -> None:
         if self.inference:
-            self.preprocess_inference(subset_feature=subset_feature)
+            self.preprocess_inference()
 
         else:
             self.import_all()

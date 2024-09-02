@@ -23,7 +23,6 @@ class LgbmPipeline(ModelPipeline, LgbmTrainer, LgbmExplainer, LgbmInference):
         self.evaluate_shap: bool = evaluate_shap
         
     def activate_inference(self) -> None:
-        self.load_model()
         self.inference = True
         
     def run_train(self) -> None:
@@ -39,5 +38,5 @@ class LgbmPipeline(ModelPipeline, LgbmTrainer, LgbmExplainer, LgbmInference):
     def train_explain(self) -> None:
         self.create_experiment_structure()
         self.initialize_logger()
-        self.run_train()
+        # self.run_train()
         self.explain_model()
