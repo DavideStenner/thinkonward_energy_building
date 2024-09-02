@@ -199,10 +199,10 @@ class LgbmExplainer(LgbmInit):
         return best_score_lgb
     
     def get_feature_importance(self) -> None:
-        self.load_used_feature()
         result_list_clustered = []
         
         for type_model in self.model_used:
+            self.load_used_feature(target=type_model)
             self.__get_single_feature_importance(type_model=type_model)
             result_clustered = self.__get_feature_importance_by_category_feature(current_model=type_model)
             result_clustered['target'] = type_model
