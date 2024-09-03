@@ -138,14 +138,18 @@ class PreprocessPipeline(BasePipeline, PreprocessImport, PreprocessAddFeature, P
         return data_columns
         
     def preprocess_inference(self) -> None:
-        print('Creating feature')
+        self.preprocess_logger.info('Creating feature')
         self.create_feature()
 
-        print('Merging All')
+        self.preprocess_logger.info('Merging all')
         self.merge_all()
                     
-        print('Collecting test....')
+        self.preprocess_logger.info(
+            f'Collecting dataset with {len(self._get_col_name(self.data))} columns and {self._get_number_rows(self.data)} rows'
+        )
         self.data: pl.DataFrame = self.data.collect()
+
+        self.preprocess_logger.info('Saving test dataset')
         self.data.write_parquet(
             os.path.join(
                 self.config_dict['PATH_GOLD_PARQUET_DATA'],
@@ -156,7 +160,7 @@ class PreprocessPipeline(BasePipeline, PreprocessImport, PreprocessAddFeature, P
 
     def preprocess_train(self) -> None:
         self._initialize_preprocess_logger()
-        
+        self.preprocess_logger.info('beginning preprocessing training dataset')
         self.preprocess_logger.info('Creating feature')
         self.create_feature()
 
@@ -164,7 +168,7 @@ class PreprocessPipeline(BasePipeline, PreprocessImport, PreprocessAddFeature, P
         self.merge_all()
         
         self.preprocess_logger.info(
-            f'Collecting dataset with {len(self._get_col_name(self.data))} columns'
+            f'Collecting dataset with {len(self._get_col_name(self.data))} columns and {self._get_number_rows(self.data)} rows'
         )
         self.data: pl.DataFrame = self.data.collect()
         
@@ -173,13 +177,14 @@ class PreprocessPipeline(BasePipeline, PreprocessImport, PreprocessAddFeature, P
         self.preprocess_logger.info('Creating fold_info column ...')
         self.create_fold()
         
+        self.preprocess_logger.info('Saving multiple training dataset')
         self.save_data()
                 
     def begin_training(self) -> None:
         self.import_all()
         
     def begin_inference(self) -> None:
-        print('Beginning inference')
+        self.preprocess_logger.info('beginning preprocessing inference dataset')
         
         #reset data
         self.data = None

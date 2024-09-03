@@ -112,6 +112,14 @@ class PreprocessInit(BaseInit):
     def _get_col_name(self, data: Union[pl.DataFrame, pl.LazyFrame]) -> list[str]:
         return data.collect_schema().names()
     
+    def _get_number_rows(self, data: Union[pl.DataFrame, pl.LazyFrame]) -> int:
+        num_rows = data.select(pl.len())
+        
+        if isinstance(data, pl.LazyFrame):
+            num_rows = num_rows.collect()
+            
+        return num_rows.item()
+    
     def _collect_item_utils(self, data: Union[pl.DataFrame, pl.LazyFrame]) -> Any:
         if isinstance(data, pl.LazyFrame):
             return data.collect().item()
