@@ -17,6 +17,7 @@ class PreprocessInit(BaseInit):
 
         self.inference: bool = False
         self._initialize_all()
+        self._initialize_preprocess_logger()
         
     def _initialize_all(self) -> None:
         self._initialize_empty_dataset()       

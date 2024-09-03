@@ -159,7 +159,6 @@ class PreprocessPipeline(BasePipeline, PreprocessImport, PreprocessAddFeature, P
         _ = gc.collect()
 
     def preprocess_train(self) -> None:
-        self._initialize_preprocess_logger()
         self.preprocess_logger.info('beginning preprocessing training dataset')
         self.preprocess_logger.info('Creating feature')
         self.create_feature()
