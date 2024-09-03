@@ -361,119 +361,7 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
             )
         )
         return all_tou_consumption_holidays
-    
-    def __create_variation_respect_state_type_build(self) -> pl.LazyFrame:
-        total_variation_consumptions = (
-            self.base_data
-            .join(
-                self.label_data.select(self.build_id, self.target_col_binary),
-                on=self.build_id, how='left'
-            )
-            .group_by(
-                'bldg_id', 'state', self.target_col_binary
-            )
-            .agg(
-                [
-                    (
-                        pl.col('energy_consumption')
-                        .filter(pl.col('season')==season)
-                        .sum()
-                        .alias(f'total_consumption_season_{season}')
-                    )
-                    for season in self.season_list
-                ] +
-                [
-                    (
-                        pl.col('energy_consumption')
-                        .filter(pl.col('month')==month)
-                        .sum()
-                        .alias(f'total_consumption_month_{month}')
-                    )
-                    for month in self.month_list
-                ] +
-                [
-                    (
-                        pl.col('energy_consumption')
-                        .filter(pl.col('weekday')==weekday)
-                        .sum()
-                        .alias(f'total_consumption_weekday_{weekday}')
-                    )
-                    for weekday in self.weekday_list
-                ] +
-                [
-                    (
-                        pl.col('energy_consumption')
-                        .filter(pl.col('hour')==hour)
-                        .sum()
-                        .alias(f'total_consumption_hour_{hour}')
-                    )
-                    for hour in self.hour_list
-                ] +
-                [
-                    pl.col('energy_consumption').sum().alias('total_consumption_ever')
-                ]
-            )
-            .select(
-                ['bldg_id'] +
-                [
-                    (
-                        pl.col(f'total_consumption_season_{season}')/
-                        (
-                            pl.col(f'total_consumption_season_{season}')
-                            .filter(pl.col(self.target_col_binary)==type_)
-                            .mean().over('state')
-                        )
-                    ).alias(f'total_consumption_season_{season}_vs_state_type_{type_}')
-                    for type_, season in product([0, 1], self.season_list)
-                ] +
-                [
-                    (
-                        pl.col(f'total_consumption_month_{month}')/
-                        (
-                            pl.col(f'total_consumption_month_{month}')
-                            .filter(pl.col(self.target_col_binary)==type_)
-                            .mean().over('state')
-                        )
-                    ).alias(f'total_consumption_month_{month}_vs_state_type_{type_}')
-                    for type_, month in product([0, 1], self.month_list)
-                ] +
-                [
-                    (
-                        pl.col(f'total_consumption_weekday_{weekday}')/
-                        (
-                            pl.col(f'total_consumption_weekday_{weekday}')
-                            .filter(pl.col(self.target_col_binary)==type_)
-                            .mean().over('state')
-                        )
-                    ).alias(f'total_consumption_weekday_{weekday}_vs_state_type_{type_}')
-                    for type_, weekday in product([0, 1], self.weekday_list)
-                ] +
-                [
-                    (
-                        pl.col(f'total_consumption_hour_{hour}')/
-                        (
-                            pl.col(f'total_consumption_hour_{hour}')
-                            .filter(pl.col(self.target_col_binary)==type_)
-                            .mean().over('state')
-                        )
-                    ).alias(f'total_consumption_hour_{hour}_vs_state_type_{type_}')
-                    for type_, hour in product([0, 1], self.hour_list)
-                ] +
-                [
-                    (
-                        pl.col('total_consumption_ever')/
-                        (
-                            pl.col('total_consumption_ever')
-                            .filter(pl.col(self.target_col_binary)==type_)
-                            .mean().over('state')
-                        )
-                    ).alias(f'total_consumption_ever_vs_state_type_{type_}')
-                    for type_ in [0, 1]
-                ]
-            )
-        )
-        return total_variation_consumptions
-    
+        
     def __create_variation_respect_state(self) -> pl.LazyFrame:
         total_variation_consumptions = (
             self.base_data
@@ -1513,8 +1401,7 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
             self.__create_drop_minutes_features(),
             self.__create_drop_minutes_by_day_features(),
             self.__create_variation_respect_state(),
-            self.__create_pivoted_information(),
-            #self.__create_variation_respect_state_type_build()
+            self.__create_pivoted_information()
         ]
         #list of query
         self.lazy_feature_list += (
