@@ -12,4 +12,4 @@ if __name__=='__main__':
     
     #also test set
     pnl_preprocessor.begin_inference()
-    pnl_preprocessor.preprocess_inference()
+    pnl_preprocessor()
