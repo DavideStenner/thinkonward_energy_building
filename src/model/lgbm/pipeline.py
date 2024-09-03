@@ -38,5 +38,5 @@ class LgbmPipeline(ModelPipeline, LgbmTrainer, LgbmExplainer, LgbmInference):
     def train_explain(self) -> None:
         self.create_experiment_structure()
         self.initialize_logger()
-        # self.run_train()
+        self.run_train()
         self.explain_model()
