@@ -16,7 +16,7 @@ foreach ($release in $releases){
 	# List and sort the objects in the source folder
 	$PathCurrentFolder = "$sourceFolder$release$folderToData"
 	
-	$Folders = aws s3 ls "s3://$PathCurrentFolder" --no-sign-request | Sort-Object | Select-Object -First 2
+	$Folders = aws s3 ls "s3://$PathCurrentFolder" --no-sign-request | Sort-Object
 
 	foreach ($folder in $Folders) {
 		$folderName = ($folder -split '\s+')[-1]
