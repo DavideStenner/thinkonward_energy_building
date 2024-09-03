@@ -186,15 +186,17 @@ class PreprocessPipeline(BasePipeline, PreprocessImport, PreprocessAddFeature, P
         self.preprocess_logger.info('beginning preprocessing inference dataset')
         
         #reset data
+        self.base_data = None
         self.data = None
-        self.inference: bool = True
+        self.lazy_feature_list: list[pl.LazyFrame] = []
         
-        self.import_all()
+        self.inference: bool = True
 
     def __call__(self) -> None:
-        if self.inference:
+        self.import_all()
+        
+        if self.inference:    
             self.preprocess_inference()
 
         else:
-            self.import_all()
             self.preprocess_train()
