@@ -31,10 +31,62 @@ class PreprocessImport(BaseImport, PreprocessInit):
 
         if not self.inference:
             self.label_data: pl.LazyFrame = pl.scan_parquet(
-            os.path.join(
-                self.config_dict['PATH_SILVER_PARQUET_DATA'],
-                self.config_dict['TRAIN_LABEL_FILE_NAME']
+                os.path.join(
+                    self.config_dict['PATH_SILVER_PARQUET_DATA'],
+                    self.config_dict['TRAIN_LABEL_FILE_NAME']
+                )
             )
+
+            if self.additional_data:
+                self.preprocess_logger.info('Using additional dataset')
+                self.add_additional_data()
+                
+    def add_additional_data(self) -> None:
+        hour_data = (
+            pl.scan_parquet(
+                os.path.join(
+                    self.config_dict['PATH_SILVER_PARQUET_DATA'],
+                    'train_data_additional.parquet'
+                )
+            ).select(self.base_data.collect_schema().names())
+        )
+        minute_data = (
+            pl.scan_parquet(
+                os.path.join(
+                    self.config_dict['PATH_SILVER_PARQUET_DATA'],
+                    'train_data_minute_additional.parquet'
+                )
+            ).select(self.minute_data.collect_schema().names())
+        )
+        label_data = (
+            pl.scan_parquet(
+                os.path.join(
+                    self.config_dict['PATH_SILVER_PARQUET_DATA'],
+                    'train_label_additional.parquet'
+                )
+            ).select(self.label_data.collect_schema().names())
+        )
+        self.preprocess_logger.info(f'Added {label_data.select(pl.n_unique(self.build_id)).collect().item()} rows')
+        
+        self.base_data = pl.concat(
+            [
+                self.base_data, 
+                hour_data
+            ]
+        )
+  
+        self.minute_data = pl.concat(
+            [
+                self.minute_data, 
+                minute_data
+            ]
+        )
+        
+        self.label_data = pl.concat(
+            [
+                self.label_data, 
+                label_data
+            ]
         )
 
     def downcast_data(self):
