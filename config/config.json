@@ -18,6 +18,17 @@
     "LOG_FOLDER": "log",
     "BUILDING_ID": "bldg_id",
     "SPECIAL_COLUMNS": ["bldg_id"],
+    "ADDITIONAL_DATA_FOLDER": "dump_data",
+    "ADDITIONAL_DICT_INFO": {
+        "commercial": {
+            "path": "commercial",
+            "metadata": "metadata_com.parquet"
+        },
+        "residential": {
+            "path": "residential",
+            "metadata": "metadata_res.parquet"
+        }
+    },
     "TARGET_DICT": {
         "BINARY": "building_stock_type",
         "COMMERCIAL": [
