@@ -210,7 +210,9 @@ if __name__ == '__main__':
                 .alias('bldg_id')
             )
         )
-        .drop('build_type')
+        .select(
+            ['timestamp', 'out.electricity.total.energy_consumption', 'in.state', 'bldg_id']
+        )
     )
 
     data_minute = (
@@ -225,7 +227,9 @@ if __name__ == '__main__':
                 .alias('bldg_id')
             )
         )
-        .drop('build_type')
+        .select(
+            ['timestamp', 'out.electricity.total.energy_consumption', 'in.state', 'bldg_id']
+        )
     )
 
     #remap metadata
@@ -245,7 +249,7 @@ if __name__ == '__main__':
     )
 
     logger.info('Remapping metadata')
-    data_minute = remap_category(
+    metadata = remap_category(
         data=metadata, mapper_mask_col=mapper_label['train_label']
     )
     
