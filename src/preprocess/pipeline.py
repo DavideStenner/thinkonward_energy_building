@@ -143,11 +143,13 @@ class PreprocessPipeline(BasePipeline, PreprocessImport, PreprocessAddFeature, P
 
         self.preprocess_logger.info('Merging all')
         self.merge_all()
-                    
-        self.preprocess_logger.info(
-            f'Collecting dataset with {len(self._get_col_name(self.data))} columns and {self._get_number_rows(self.data)} rows'
-        )
+
+        self.preprocess_logger.info('Collecting Dataset')
+
         self.data: pl.DataFrame = self.data.collect()
+        self.preprocess_logger.info(
+            f'Collected dataset with {len(self._get_col_name(self.data))} columns and {self._get_number_rows(self.data)} rows'
+        )
 
         self.preprocess_logger.info('Saving test dataset')
         self.data.write_parquet(
@@ -166,11 +168,13 @@ class PreprocessPipeline(BasePipeline, PreprocessImport, PreprocessAddFeature, P
         self.preprocess_logger.info('Merging all')
         self.merge_all()
         
-        self.preprocess_logger.info(
-            f'Collecting dataset with {len(self._get_col_name(self.data))} columns and {self._get_number_rows(self.data)} rows'
-        )
+        self.preprocess_logger.info('Collecting Dataset')
+
         self.data: pl.DataFrame = self.data.collect()
-        
+        self.preprocess_logger.info(
+            f'Collected dataset with {len(self._get_col_name(self.data))} columns and {self._get_number_rows(self.data)} rows'
+        )
+
         _ = gc.collect()
         
         self.preprocess_logger.info('Creating fold_info column ...')
