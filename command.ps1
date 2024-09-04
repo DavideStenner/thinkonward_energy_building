@@ -7,7 +7,7 @@ $destinationFolder = "data_dump/"
 $stateList = @("AK", "AL", "AR", "AZ", "CA", "CO", "CT", "DC", "DE", "FL", "GA", "HI", "IA", "ID", "IL", "IN", "KS", "KY", "LA", "MA", "MD", "ME", "MI", "MN", "MO", "MS", "MT", "NC", "ND", "NE", "NH", "NJ", "NM", "NV", "NY", "OH", "OK", "OR", "PA", "RI", "SC", "SD", "TN", "TX", "UT", "VA", "VT", "WA", "WI", "WV", "WY")
 
 # Set the number of files you want to copy
-$N = 5  # Change this to the number of files you want to copy
+$N = Read-Host "Enter Number of Home to scrape"
 
 #reset log
 "" | Out-File -FilePath "log/dumping.txt"
@@ -34,11 +34,13 @@ foreach ($release in $releases){
 
 	foreach ($folder in $Folders) {
 		$folderName = ($folder -split '\s+')[-1]
-		
+		$stateName = ($folderName -split '=')[-1]
+		$stateName = $stateName -replace '/', ''
+
 		#they put some wrong state as NA
-		if ($folderName -notin $stateList){
-			Write-Host "Skipping $folderName as not a US State"
-			"Skipping $folderName as not a US State" | Out-File -FilePath "log/dumping.txt" -Append
+		if ($stateName -notin $stateList){
+			Write-Host "Skipping $stateName as not a US State"
+			"Skipping $stateName as not a US State" | Out-File -FilePath "log/dumping.txt" -Append
 			continue
 		}
 
