@@ -4,15 +4,17 @@ import sys
 sys.path.append(os.getcwd())
 
 if __name__ == '__main__':
-    import json
+    import warnings
     import polars as pl
-    
+
+    from glob import glob
     from tqdm import tqdm
     from typing import Dict
     from src.utils.import_utils import import_config
     from src.utils.logging_utils import get_logger
     from src.utils.dtype import remap_category
 
+    warnings.simplefilter("ignore", pl.exceptions.CategoricalRemappingWarning)
     logger = get_logger(file_name='add_new_data.log')
 
     config_dict = import_config()
@@ -32,7 +34,13 @@ if __name__ == '__main__':
     data_minute_list = []
     
     folder_map = config_dict['ADDITIONAL_DICT_INFO']
-    
+    total_number_data = len(
+        glob(
+            '*/*/*.parquet'
+        )
+    )
+    bar_file = tqdm(total = total_number_data+1)
+
     for type_building, type_dict in folder_map.items():
         type_building_path: str = os.path.join(
             'data_dump', type_dict['path']
@@ -79,7 +87,7 @@ if __name__ == '__main__':
                 hour_result = (
                     minute_result
                     .group_by(
-                        'bldg_id', 'in.state', 
+                        'bldg_id', 'in.state', 'build_type',
                         pl.col('timestamp').dt.truncate('1h')
                     )
                     .agg(
@@ -89,6 +97,9 @@ if __name__ == '__main__':
                 data_hour_list.append(hour_result)
                 data_minute_list.append(minute_result)
                 
+                bar_file.update(1)
+    
+    bar_file.close()
     logger.info('Collecting dataset')
     
     data_hour: pl.DataFrame = pl.concat(data_hour_list)
@@ -164,12 +175,13 @@ if __name__ == '__main__':
             [metadata_res, metadata_com],
             how='diagonal',
         )
+        .collect()
         .join(
             data_hour.select('bldg_id', 'build_type').unique(), 
             on=['bldg_id', 'build_type']
         )
-        .collect()
     )
+
     #remap id
     id_build_list: list[str] = (
         metadata
@@ -229,6 +241,7 @@ if __name__ == '__main__':
                 .alias('bldg_id')
             )
         )
+        .rename({'build_type': 'building_stock_type'})
     )
 
     logger.info('Remapping metadata')
