@@ -540,96 +540,6 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
         )
 
         return [max_profile, min_profile, difference_profile]
-
-    def __create_holidays_utils(self) -> pl.LazyFrame:
- 
-        national_holidays = {
-            date_: True
-            for date_ in holidays.country_holidays('US', years=2018).keys()
-        }
-        state_holidays_mapper = {
-            state_index: [
-                date_.strftime('%Y-%m-%d')
-                for date_ in holidays.country_holidays('US', subdiv=state_name, years=2018).keys()
-                if date_ not in national_holidays.keys()
-            ]
-            for state_name, state_index in self.state_mapper.items()
-        }
-
-        state_holidays = pd.DataFrame(
-            {'state': self.state_mapper.values()}
-        )
-        state_holidays['day'] = state_holidays['state'].apply(lambda x: state_holidays_mapper[x])
-        state_holidays = state_holidays.explode(column='day')
-        
-        state_holidays = (
-            pl.from_dataframe(state_holidays)
-            .with_columns(
-                pl.col('state').cast(pl.UInt8),
-                pl.col('day').cast(pl.Date).cast(pl.Datetime), 
-                pl.lit(True).cast(pl.Boolean).alias('is_state_holiday')
-            )
-            .filter(pl.col('day').is_null().not_())
-        )
-        if isinstance(self.base_data, pl.LazyFrame):
-            state_holidays = state_holidays.lazy()
-            
-        self.base_data = (
-            self.base_data
-            .with_columns(
-                (
-                    pl.col('day').replace(national_holidays, default=False)
-                    .cast(pl.Boolean).alias('is_national_holiday')
-                )
-            )
-            .join(
-                state_holidays, 
-                on=['state', 'day'], how='left'
-            )
-            .with_columns(pl.col('is_state_holiday').fill_null(False))
-
-        )
-        
-    def create_utils_features(self) -> None:
-        """Create utils information as month"""
-        self.base_data = (
-            self.base_data
-            .with_columns(
-                pl.col('timestamp').dt.hour().alias('hour'),
-                pl.col('timestamp').dt.month().alias('month'),
-                pl.col('timestamp').dt.week().alias('weeknum'),
-                pl.col('timestamp').dt.truncate('1d').alias('day'),
-                pl.col('timestamp').dt.weekday().alias('weekday')
-            )
-            .with_columns(
-                (pl.col('weekday')>=6).cast(pl.UInt8).alias('is_weekend'),
-                (
-                    pl.col('hour')
-                    .replace(self.slice_hour_mapping).alias('tou')
-                ),
-                (
-                    pl.col('month')
-                    .replace(self.month_season_mapping).alias('season')
-                ),
-                (
-                    pl.col('energy_consumption').sum().over([self.build_id, 'day']).alias('daily_consumption')
-                )
-            )
-        )
-        self.minute_data = (
-            self.minute_data
-            .sort(self.build_id, 'timestamp')
-            .with_columns(
-                (pl.col('timestamp').dt.hour() + pl.col('timestamp').dt.minute()/100).alias('hour_minute'),
-                pl.col('timestamp').dt.truncate('1d').alias('day'),
-                pl.col('timestamp').dt.month().alias('month'),
-                pl.col('timestamp').dt.hour().alias('hour'),
-                pl.col('timestamp').dt.week().alias('weeknum'),
-                pl.col('timestamp').dt.weekday().alias('weekday')
-            )
-        )
-        
-        self.__create_holidays_utils()
     
     def __create_past_future_difference_hour(self) -> list[pl.LazyFrame]:
         """use minutes feature and aggregates
@@ -1153,6 +1063,85 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
             )
         )
         return result
+    
+    def __create_holidays_utils(self) -> pl.LazyFrame:
+ 
+        national_holidays = {
+            date_: True
+            for date_ in holidays.country_holidays('US', years=2018).keys()
+        }
+        state_holidays_mapper = {
+            state_index: [
+                date_.strftime('%Y-%m-%d')
+                for date_ in holidays.country_holidays('US', subdiv=state_name, years=2018).keys()
+                if date_ not in national_holidays.keys()
+            ]
+            for state_name, state_index in self.state_mapper.items()
+        }
+
+        state_holidays = pd.DataFrame(
+            {'state': self.state_mapper.values()}
+        )
+        state_holidays['day'] = state_holidays['state'].apply(lambda x: state_holidays_mapper[x])
+        state_holidays = state_holidays.explode(column='day')
+        
+        state_holidays = (
+            pl.from_dataframe(state_holidays)
+            .with_columns(
+                pl.col('state').cast(pl.UInt8),
+                pl.col('day').cast(pl.Date).cast(pl.Datetime), 
+                pl.lit(True).cast(pl.Boolean).alias('is_state_holiday')
+            )
+            .filter(pl.col('day').is_null().not_())
+        )
+        if isinstance(self.base_data, pl.LazyFrame):
+            state_holidays = state_holidays.lazy()
+            
+        self.base_data = (
+            self.base_data
+            .with_columns(
+                (
+                    pl.col('day').replace(national_holidays, default=False)
+                    .cast(pl.Boolean).alias('is_national_holiday')
+                )
+            )
+            .join(
+                state_holidays, 
+                on=['state', 'day'], how='left'
+            )
+            .with_columns(pl.col('is_state_holiday').fill_null(False))
+
+        )
+        
+    def create_utils_features(self) -> None:
+        """Create utils information as month"""
+        self.base_data = (
+            self.base_data
+            .with_columns(
+                pl.col('timestamp').dt.hour().alias('hour'),
+                pl.col('timestamp').dt.month().alias('month'),
+                pl.col('timestamp').dt.week().alias('weeknum'),
+                pl.col('timestamp').dt.truncate('1d').alias('day'),
+                pl.col('timestamp').dt.weekday().alias('weekday')
+            )
+            .with_columns(
+                (pl.col('weekday')>=6).cast(pl.UInt8).alias('is_weekend'),
+                (
+                    pl.col('hour')
+                    .replace(self.slice_hour_mapping).alias('tou')
+                ),
+                (
+                    pl.col('month')
+                    .replace(self.month_season_mapping).alias('season')
+                ),
+                (
+                    pl.col('energy_consumption').sum().over([self.build_id, 'day']).alias('daily_consumption')
+                )
+            )
+        )
+        
+        self.__create_holidays_utils()
+    
     def create_feature(self) -> None:   
         self.create_utils_features()
         
