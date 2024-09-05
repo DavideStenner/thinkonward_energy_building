@@ -734,8 +734,8 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
     def __create_increment_decrement_hour_by_day_features(self) -> pl.LazyFrame:
         filter_begin_expr_dict, filter_end_expr_dict = self.__filter_range_work
         
-        begin_names = filter_begin_expr_dict.keys()
-        end_names = filter_end_expr_dict.keys()
+        begin_names = list(filter_begin_expr_dict.keys())
+        end_names = list(filter_end_expr_dict.keys())
         
         change_features = (
             self.base_data
@@ -816,15 +816,26 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
             .group_by(self.build_id)
             .agg(
                 [
-                    pl.col(col)
+                    pl.col(f'average_robust_increment_{col}')
                     .filter(
                         pl.col('weekday') == weekday
                     )
                     .first()
                     .alias(
-                        f'{col}_weekday_{weekday}'
+                        f'average_robust_increment_{col}_weekday_{weekday}'
                     )
-                    for col, weekday in product(begin_names + end_names, self.weekday_list)
+                    for col, weekday in product(begin_names, self.weekday_list)
+                ] +
+                [
+                    pl.col(f'average_robust_decrement_{col}')
+                    .filter(
+                        pl.col('weekday') == weekday
+                    )
+                    .first()
+                    .alias(
+                        f'average_robust_decrement_{col}_weekday_{weekday}'
+                    )
+                    for col, weekday in product(end_names, self.weekday_list)
                 ]
             )
         )
@@ -833,8 +844,8 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
     def __create_increment_decrement_hour_features(self) -> pl.LazyFrame:
         filter_begin_expr_dict, filter_end_expr_dict = self.__filter_range_work
         
-        begin_names = filter_begin_expr_dict.keys()
-        end_names = filter_end_expr_dict.keys()
+        begin_names = list(filter_begin_expr_dict.keys())
+        end_names = list(filter_end_expr_dict.keys())
         
         change_features = (
             self.base_data
@@ -915,15 +926,26 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
             .group_by(self.build_id)
             .agg(
                 [
-                    pl.col(col)
+                    pl.col(f'average_robust_increment_{col}')
                     .filter(
                         pl.col('hour') == hour
                     )
                     .first()
                     .alias(
-                        f'{col}_hour_{hour}'
+                        f'average_robust_increment_{col}_hour_{hour}'
                     )
-                    for col, hour in product(begin_names + end_names, self.hour_list)
+                    for col, hour in product(begin_names, self.hour_list)
+                ] +
+                [
+                    pl.col(f'average_robust_decrement_{col}')
+                    .filter(
+                        pl.col('hour') == hour
+                    )
+                    .first()
+                    .alias(
+                        f'average_robust_decrement_{col}_hour_{hour}'
+                    )
+                    for col, hour in product(end_names, self.hour_list)
                 ]
             )
         )
@@ -976,8 +998,8 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
                 [
                     pl.col('timestamp').filter(
                         (
-                            pl.col('difference_energy_consumption_past') == (
-                                pl.col('difference_energy_consumption_past')
+                            pl.col('drop_energy_consumption') == (
+                                pl.col('drop_energy_consumption')
                                 .filter(filter_expr)
                             ).min()
                         ) &
