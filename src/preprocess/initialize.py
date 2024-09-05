@@ -37,24 +37,6 @@ class PreprocessInit(BaseInit):
         self.hour_list: list[int] = list(range(24))
         
         self.tou_unique: list[int] = list(set(self.slice_hour_mapping.values()))
-        self.hour_minute_list: list[int] = [
-            hour_ + minute_/100
-            for hour_, minute_ in product(
-                range(24), [0, 15, 30, 45]
-            )
-        ]
-        self.drop_hour_minute_list: list[int] = [
-            hour_ + minute_/100 
-            for hour_, minute_ in product(
-                range(14, 24), [0, 15, 30, 45]
-            )
-        ]
-        self.increment_hour_minute_list: list[int] = [
-            hour_ + minute_/100 
-            for hour_, minute_ in product(
-                range(3, 14), [0, 15, 30, 45]
-            )
-        ]
         
     def _initialize_utils(self) -> None:
         self.lazy_feature_list: list[pl.LazyFrame] = []
@@ -108,7 +90,6 @@ class PreprocessInit(BaseInit):
     def _initialize_empty_dataset(self) -> None:
         self.base_data: Union[pl.LazyFrame, pl.DataFrame]
         self.economic_data: Union[pl.LazyFrame, pl.DataFrame]
-        self.minute_data: Union[pl.LazyFrame, pl.DataFrame]
         self.label_data: Union[pl.LazyFrame, pl.DataFrame]
         self.data: Union[pl.LazyFrame, pl.DataFrame]
         

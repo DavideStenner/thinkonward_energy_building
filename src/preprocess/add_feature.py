@@ -1388,25 +1388,14 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
         
         #add single query
         self.lazy_feature_list += [
-            self.__create_daily_aggregation(),
-            self.__create_slice_hour_aggregation(),
-            self.__create_total_consumptions(),
-            self.__create_slice_day_aggregation(),
-            self.__create_hour_weeknum_aggregation(),
-            self.__create_range_work_minutes_features(),
-            self.__create_increment_minutes_features(),
-            self.__create_increment_minutes_by_day_features(),
-            self.__create_tou_holidays_feature(),
-            self.__create_daily_holidays_feature(),
-            self.__create_drop_minutes_features(),
-            self.__create_drop_minutes_by_day_features(),
-            self.__create_variation_respect_state(),
-            self.__create_pivoted_information()
+            self.__create_hour_aggregation(),
+            self.__create_range_work_hour_features(),
+            self.__create_increment_decrement_hour_features(),
+            self.__create_increment_decrement_hour_by_day_features()
         ]
         #list of query
         self.lazy_feature_list += (
             self.__create_hour_profile_consumption() +
-            self.__create_hourminute_profile_consumption() +
             self.__create_weekday_profile_consumption() +
             self.__create_past_future_difference_hour()
         )

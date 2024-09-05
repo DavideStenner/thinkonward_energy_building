@@ -22,13 +22,6 @@ class PreprocessImport(BaseImport, PreprocessInit):
                 'macro_economics_data.parquet'
             )
         )
-        self.minute_data: pl.LazyFrame = pl.scan_parquet(
-            os.path.join(
-                self.config_dict['PATH_SILVER_PARQUET_DATA'],
-                self.config_dict[f'{stage_file}_FEATURE_MINUTE_FILE_NAME']
-            )
-        )
-
         if not self.inference:
             self.label_data: pl.LazyFrame = pl.scan_parquet(
                 os.path.join(
@@ -50,14 +43,6 @@ class PreprocessImport(BaseImport, PreprocessInit):
                 )
             ).select(self.base_data.collect_schema().names())
         )
-        minute_data = (
-            pl.scan_parquet(
-                os.path.join(
-                    self.config_dict['PATH_SILVER_PARQUET_DATA'],
-                    'train_data_minute_additional.parquet'
-                )
-            ).select(self.minute_data.collect_schema().names())
-        )
         label_data = (
             pl.scan_parquet(
                 os.path.join(
@@ -74,14 +59,7 @@ class PreprocessImport(BaseImport, PreprocessInit):
                 hour_data
             ]
         )
-  
-        self.minute_data = pl.concat(
-            [
-                self.minute_data, 
-                minute_data
-            ]
-        )
-        
+          
         self.label_data = pl.concat(
             [
                 self.label_data, 
@@ -104,21 +82,7 @@ class PreprocessImport(BaseImport, PreprocessInit):
                 }
             )
         )
-        self.minute_data = (
-            self.minute_data
-            .with_columns(
-                pl.col('timestamp').cast(pl.Datetime),
-                pl.col('out.electricity.total.energy_consumption').cast(pl.Float64),
-                pl.col('in.state').cast(pl.UInt8),
-                pl.col(self.build_id).cast(pl.UInt16),
-            )
-            .rename(
-                {
-                    'out.electricity.total.energy_consumption': 'energy_consumption',
-                    'in.state': 'state'
-                }
-            )
-        )
+
         if not self.inference:
             self.label_data = self.label_data.with_columns(
                 [
