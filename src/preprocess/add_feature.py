@@ -7,196 +7,47 @@ from itertools import product, chain
 from src.base.preprocess.add_feature import BaseFeature
 from src.preprocess.initialize import PreprocessInit
 
-class PreprocessAddFeature(BaseFeature, PreprocessInit):    
-    
-    def __create_slice_hour_aggregation(self) -> pl.LazyFrame:
-        """
-            Create average hour consumption over
-                - season, tou
-                - month, tou
-                - weeknum, tou
-
-        Returns:
-            pl.LazyFrame: query
-        """
-
-        all_tou_consumption = (
-            self.base_data
-            .group_by(
-                'bldg_id',
-            )
-            .agg(
-                [
-                    (
-                        pl.col('energy_consumption')
-                        .filter(
-                            (pl.col('season')==season)&
-                            (pl.col('tou')==tou)
-                        )
-                        .mean()
-                        .alias(f'average_hour_consumption_season_{season}_tou_{tou}')
-                    )
-                    for season, tou in product(self.season_list, self.tou_unique)
-                ] +
-                [
-                    (
-                        pl.col('energy_consumption')
-                        .filter(
-                            (pl.col('month')==month) &
-                            (pl.col('tou')==tou)
-                        )
-                        .mean()
-                        .alias(f'average_hour_consumption_month_{month}_tou_{tou}')
-                    )
-                    for month, tou in product(self.month_list, self.tou_unique)
-                ] +
-                [
-                    (
-                        pl.col('energy_consumption')
-                        .filter(
-                            (pl.col('weeknum')==week) &
-                            (pl.col('tou')==tou)
-                        )
-                        .mean()
-                        .alias(f'average_hour_consumption_week_{week}_tou_{tou}')
-                    )
-                    for week, tou in product(self.weeknum_list, self.tou_unique)
-                ]
-            )
-        )
-        return all_tou_consumption
-
-    def __create_slice_day_aggregation(self) -> pl.LazyFrame:
-        """
-        Create average daily consumption over
-            - season, is_weekend
-            - month, is_weekend
-            - weeknum, is_weekend
-
-        Returns:
-            pl.LazyFrame: query
-        """
-        all_day_consumption = (
-            self.base_data
-            .group_by(
-                'bldg_id',
-            )
-            .agg(
-                [
-                    (
-                        pl.col('energy_consumption')
-                        .filter(
-                            (pl.col('season')==season) &
-                            (pl.col('is_weekend')==is_weekend)
-                        )
-                        .mean()
-                        .alias(f'average_hour_consumption_season_{season}_is_weekend_{is_weekend}')
-                    )
-                    for season, is_weekend in product(self.season_list, [0, 1])
-                ] +
-                [
-                    (
-                        pl.col('energy_consumption')
-                        .filter(
-                            (pl.col('month')==month) &
-                            (pl.col('is_weekend')==is_weekend)
-                        )
-                        .mean()
-                        .alias(f'average_hour_consumption_month_{month}_is_weekend_{is_weekend}')
-                    )
-                    for month, is_weekend in product(self.month_list, [0, 1])
-                ] +
-                [
-                    (
-                        pl.col('energy_consumption')
-                        .filter(
-                            (pl.col('weeknum')==week) &
-                            (pl.col('is_weekend')==is_weekend)
-                        )
-                        .mean()
-                        .alias(f'average_hour_consumption_week_{week}_is_weekend_{is_weekend}')
-                    )
-                    for week, is_weekend in product(self.weeknum_list, [0, 1])
-                ]
-            )
-        )
-        return all_day_consumption
-    
-    def __create_pivoted_information(self) -> pl.LazyFrame:
-        """
-        Create pivot hour, day info over
-            - month
-            - year
-
-        Returns:
-            pl.LazyFrame: query
-        """
-        pivoted_hour = (
-            self.base_data
-            .group_by(
-                'bldg_id',
-            )
-            .agg(
-                [
-                    (
-                        pl.col('energy_consumption')
-                        .filter(
-                            (pl.col('month')==month) &
-                            (pl.col('hour')==hour)
-                        )
-                        .mean()
-                        .alias(f'average_consumption_hour_{hour}_over_month_{month}')
-                    )
-                    for hour, month in product(self.hour_list, self.month_list)
-                ]
-            )
-        )
-        return pivoted_hour
-
-    def __create_hour_weeknum_aggregation(self) -> pl.LazyFrame:
-        """
-        Create average daily consumption over
-            - season, weekday
-            - month, weekday
-
-        Returns:
-            pl.LazyFrame: query
-        """
-        all_day_consumption = (
-            self.base_data
-            .group_by(
-                'bldg_id',
-            )
-            .agg(
-                [
-                    (
-                        pl.col('energy_consumption')
-                        .filter(
-                            (pl.col('season')==season) &
-                            (pl.col('weekday')==weekday)
-                        )
-                        .mean()
-                        .alias(f'average_hour_consumption_season_{season}_weekday_{weekday}')
-                    )
-                    for season, weekday in product(self.season_list, self.weekday_list)
-                ] +
-                [
-                    (
-                        pl.col('energy_consumption')
-                        .filter(
-                            (pl.col('month')==month) &
-                            (pl.col('weekday')==weekday)
-                        )
-                        .mean()
-                        .alias(f'average_hour_consumption_month_{month}_weekday_{weekday}')
-                    )
-                    for month, weekday in product(self.month_list, self.weekday_list)
-                ]
-            )
-        )
-        return all_day_consumption
-    
-    def __create_daily_aggregation(self) -> pl.LazyFrame:
+    @property
+    def __filter_range_work(self) -> Tuple[Dict[str, pl.Expr], Dict[str, pl.Expr]]:
+        filter_begin_expr_dict = {
+            ##COMMERCIAL 
+            #BEGIN
+            #only between 3-13, workday
+            'com_begin_workday': (pl.col('hour')>=3) & (pl.col('hour')<=13) & (pl.col('weekday')<=5),
+            
+            #only between 3-13, weekend
+            'com_begin_weekend': (pl.col('hour')>=3) & (pl.col('hour')<=13) & (pl.col('weekday')>5),
+            
+            
+            ##RESIDENTIAL
+            #BEGIN
+            #workday
+            'res_begin_workday': (pl.col('weekday')<=5),
+            
+            #weekend
+            'res_begin_weekend': (pl.col('weekday')>5),
+        }
+            
+        filter_end_expr_dict = {
+            ##COMMERCIAL 
+            #END
+            #after 3, workday
+            'com_end_workday': (pl.col('hour')>=3) & (pl.col('weekday')<=5),
+            
+            #after 3, weekend
+            'com_end_weekend': (pl.col('hour')>=3) & (pl.col('weekday')>5),
+            
+            
+            ##RESIDENTIAL
+            #END
+            #after 3, workday
+            'res_end_workday': (pl.col('weekday')<=5),
+            
+            #after 3, weekend
+            'res_end_weekend': (pl.col('weekday')>5),
+        }
+        return filter_begin_expr_dict, filter_end_expr_dict
+         
         """
         Create daily average consumption over:
         - season
