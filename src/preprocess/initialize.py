@@ -16,7 +16,10 @@ class PreprocessInit(BaseInit):
         self.n_folds: int = self.config_dict['N_FOLD']
 
         self.inference: bool = False
-        self.additional_data: bool = config_dict['additional']
+        self.additional_data: bool = (
+            False if 'additional' not in config_dict.keys() else
+            config_dict['additional']
+        )
         
         self._initialize_all()
         self._initialize_preprocess_logger()
