@@ -2,11 +2,12 @@ import holidays
 import pandas as pd
 import polars as pl
 
-from typing import Union, Dict, Optional
-from itertools import product, chain
+from typing import Dict, Tuple
+from itertools import product
 from src.base.preprocess.add_feature import BaseFeature
 from src.preprocess.initialize import PreprocessInit
 
+class PreprocessAddFeature(BaseFeature, PreprocessInit):
     @property
     def __filter_range_work(self) -> Tuple[Dict[str, pl.Expr], Dict[str, pl.Expr]]:
         filter_begin_expr_dict = {
