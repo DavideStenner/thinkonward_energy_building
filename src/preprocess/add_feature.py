@@ -821,108 +821,33 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
         )
         return [hour_rangework_features, hour_drop_features]
 
-    def __create_increment_minutes_features(self) -> pl.LazyFrame:
-        """use minutes feature and aggregates
-
-
-        Returns:
-            pl.LazyFrame: query
-        """
+    def __create_increment_decrement_hour_by_day_features(self) -> pl.LazyFrame:
+        filter_begin_expr_dict, filter_end_expr_dict = self.__filter_range_work
         
-        minutes_increment_features = (
-            self.minute_data
+        begin_names = filter_begin_expr_dict.keys()
+        end_names = filter_end_expr_dict.keys()
+        
+        change_features = (
+            self.base_data
             .with_columns(
                 (
                     pl.col('energy_consumption')
                     .rolling_mean(window_size=4)
-                    .shift(1)
                     .over(self.build_id)
                     .alias('past_hour_energy_consumption')
-                )
-            )
-            .filter(
-                #only between 3-13, monday-friday
-                (pl.col('hour')>=3) &
-                (pl.col('hour')<=13) &
-                (pl.col('weekday')<=5)
-            )
-            .with_columns(
-                (
-                    (pl.col('energy_consumption') - pl.col('past_hour_energy_consumption'))
-                    .alias('difference_energy_consumption_past')
-                )
-            )
-            .group_by(
-                self.build_id, 'month', 'weeknum', 'hour_minute'
-            )
-            #max over week
-            .agg(
-                
-                #opening time has more consume than before
-                pl.col('difference_energy_consumption_past').max()
-            )
-            #min over month
-            .group_by(
-                self.build_id, 'month', 'hour_minute'
-            )
-            .agg(
-                pl.col('difference_energy_consumption_past').min()
-            )
-            #now average of min max difference
-            .group_by(
-                self.build_id, 'hour_minute'
-            )
-            .agg(
-                pl.col('difference_energy_consumption_past').mean().alias(
-                    'average_robust_increment'
-                )
-            )
-            #pivot
-            .group_by(self.build_id)
-            .agg(
-                [
-                    pl.col('average_robust_increment')
-                    .filter(
-                        pl.col('hour_minute') == hour_minute
-                    )
-                    .first()
-                    .alias(
-                        f'average_robust_increment_{hour_minute}'
-                    )
-                    for hour_minute in self.increment_hour_minute_list
-                ]
-            )
-        )
-        return minutes_increment_features
-
-    def __create_increment_minutes_by_day_features(self) -> pl.LazyFrame:
-        """use minutes feature and aggregates
-
-
-        Returns:
-            pl.LazyFrame: query
-        """
-        
-        minutes_increment_features = (
-            self.minute_data
-            .with_columns(
+                ),
                 (
                     pl.col('energy_consumption')
                     .rolling_mean(window_size=4)
-                    .shift(1)
+                    .shift(-5)
                     .over(self.build_id)
-                    .alias('past_hour_energy_consumption')
+                    .alias('future_hour_energy_consumption')
                 )
-            )
-            .filter(
-                #only between 3-13, monday-friday
-                (pl.col('hour')>=3) &
-                (pl.col('hour')<=13)
             )
             .with_columns(
                 (
-                    (pl.col('energy_consumption') - pl.col('past_hour_energy_consumption'))
-                    .alias('difference_energy_consumption_past')
+                    (pl.col('future_hour_energy_consumption') - pl.col('past_hour_energy_consumption'))
+                    .alias('drop_energy_consumption')
                 )
             )
             .group_by(
@@ -930,283 +855,304 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
             )
             #max over week
             .agg(
-                
-                #opening time has more consume than before
-                pl.col('difference_energy_consumption_past').max()
+                #find greatest spike
+                [
+                    pl.col('drop_energy_consumption').filter(
+                        filter_expr
+                    ).max().alias('increment_' + col_name)
+                    for col_name, filter_expr in filter_begin_expr_dict.items()
+                ] +
+                #finde lowest spike
+                [
+                    pl.col('drop_energy_consumption').filter(
+                        filter_expr
+                    ).min().alias('decrement_' + col_name)
+                    for col_name, filter_expr in filter_end_expr_dict.items()
+                ]
             )
             #min over month
             .group_by(
                 self.build_id, 'month', 'weekday'
             )
             .agg(
-                pl.col('difference_energy_consumption_past').min()
+                #find greatest conservative spike
+                [
+                    pl.min('increment_' + col_name)
+                    for col_name in begin_names
+                ] +
+                #finde lowest conservative spike
+                [
+                    pl.max('decrement_' + col_name)
+                    for col_name in end_names
+                ]
             )
             #now average of min max difference
             .group_by(
                 self.build_id, 'weekday'
             )
             .agg(
-                pl.col('difference_energy_consumption_past').mean().alias(
-                    'average_robust_increment'
-                )
+                #find greatest conservative spike
+                [
+                    pl.mean('increment_' + col_name).alias('average_robust_increment_' + col_name)
+                    for col_name in begin_names
+                ] +
+                #finde lowest conservative spike
+                [
+                    pl.mean('decrement_' + col_name).alias('average_robust_decrement_' + col_name)
+                    for col_name in end_names
+                ]
             )
             #pivot
             .group_by(self.build_id)
             .agg(
                 [
-                    pl.col('average_robust_increment')
+                    pl.col(col)
                     .filter(
                         pl.col('weekday') == weekday
                     )
                     .first()
                     .alias(
-                        f'average_robust_increment_weekday_{weekday}'
+                        f'{col}_weekday_{weekday}'
                     )
-                    for weekday in self.weekday_list
+                    for col, weekday in product(begin_names + end_names, self.weekday_list)
                 ]
             )
         )
-        return minutes_increment_features
+        return change_features
 
-    def __create_drop_minutes_by_day_features(self) -> pl.LazyFrame:
-        """use minutes feature and aggregates
-
-
-        Returns:
-            pl.LazyFrame: query
-        """
+    def __create_increment_decrement_hour_features(self) -> pl.LazyFrame:
+        filter_begin_expr_dict, filter_end_expr_dict = self.__filter_range_work
         
-        minutes_drop_features = (
-            self.minute_data
+        begin_names = filter_begin_expr_dict.keys()
+        end_names = filter_end_expr_dict.keys()
+        
+        change_features = (
+            self.base_data
             .with_columns(
                 (
                     pl.col('energy_consumption')
                     .rolling_mean(window_size=4)
-                    .shift(-4)
-                    .over(self.build_id)
-                    .alias('future_hour_energy_consumption')
-                )
-            )
-            .filter(
-                #only between 3-13, monday-friday
-                (pl.col('hour')>=14) &
-                (pl.col('hour')<=24)
-            )
-            .with_columns(
-                (
-                    (pl.col('energy_consumption') - pl.col('future_hour_energy_consumption'))
-                    .alias('difference_energy_consumption_future')
-                )
-            )
-            .group_by(
-                self.build_id, 'month', 'weeknum', 'weekday'
-            )
-            #min over week
-            .agg(
-                
-                #ending time has less consume than before
-                pl.col('difference_energy_consumption_future').min()
-            )
-            #max over month
-            .group_by(
-                self.build_id, 'month', 'weekday'
-            )
-            .agg(
-                pl.col('difference_energy_consumption_future').max()
-            )
-            #now average of min max difference
-            .group_by(
-                self.build_id, 'weekday'
-            )
-            .agg(
-                pl.col('difference_energy_consumption_future').mean().alias(
-                    'average_robust_drop'
-                )
-            )
-            #pivot
-            .group_by(self.build_id)
-            .agg(
-                [
-                    pl.col('average_robust_drop')
-                    .filter(
-                        pl.col('weekday') == weekday
-                    )
-                    .first()
-                    .alias(
-                        f'average_robust_drop_weekday_{weekday}'
-                    )
-                    for weekday in self.weekday_list
-                ]
-            )
-        )
-        return minutes_drop_features
-
-    def __create_drop_minutes_features(self) -> pl.LazyFrame:
-        """use minutes feature and aggregates
-
-
-        Returns:
-            pl.LazyFrame: query
-        """
-        
-        minutes_drop_features = (
-            self.minute_data
-            .with_columns(
-                (
-                    pl.col('energy_consumption')
-                    .rolling_mean(window_size=4)
-                    .shift(-4)
-                    .over(self.build_id)
-                    .alias('future_hour_energy_consumption')
-                )
-            )
-            .filter(
-                #only between 3-13, monday-friday
-                (pl.col('hour')>=14) &
-                (pl.col('hour')<=24) &
-                (pl.col('weekday')<=5)
-            )
-            .with_columns(
-                (
-                    (pl.col('energy_consumption') - pl.col('future_hour_energy_consumption'))
-                    .alias('difference_energy_consumption_future')
-                )
-            )
-            .group_by(
-                self.build_id, 'month', 'weeknum', 'hour_minute'
-            )
-            #min over week
-            .agg(
-                
-                #ending time has less consume than before
-                pl.col('difference_energy_consumption_future').min()
-            )
-            #max over month
-            .group_by(
-                self.build_id, 'month', 'hour_minute'
-            )
-            .agg(
-                pl.col('difference_energy_consumption_future').max()
-            )
-            #now average of min max difference
-            .group_by(
-                self.build_id, 'hour_minute'
-            )
-            .agg(
-                pl.col('difference_energy_consumption_future').mean().alias(
-                    'average_robust_drop'
-                )
-            )
-            #pivot
-            .group_by(self.build_id)
-            .agg(
-                [
-                    pl.col('average_robust_drop')
-                    .filter(
-                        pl.col('hour_minute') == hour_minute
-                    )
-                    .first()
-                    .alias(
-                        f'average_robust_drop_{hour_minute}'
-                    )
-                    for hour_minute in self.drop_hour_minute_list
-                ]
-            )
-        )
-        return minutes_drop_features
-
-    def __create_range_work_minutes_features(self) -> pl.LazyFrame:
-        """range_work
-
-
-        Returns:
-            pl.LazyFrame: query
-        """
-        
-        minutes_drop_features = (
-            self.minute_data
-            .with_columns(
-                (
-                    pl.col('energy_consumption')
-                    .rolling_mean(window_size=4)
-                    .shift(1)
                     .over(self.build_id)
                     .alias('past_hour_energy_consumption')
+                ),
+                (
+                    pl.col('energy_consumption')
+                    .rolling_mean(window_size=4)
+                    .shift(-5)
+                    .over(self.build_id)
+                    .alias('future_hour_energy_consumption')
                 )
-            )
-            .filter(
-                #monday-friday
-                (pl.col('weekday')<=5)
             )
             .with_columns(
                 (
-                    (pl.col('energy_consumption') - pl.col('past_hour_energy_consumption'))
-                    .alias('difference_energy_consumption_past')
+                    (pl.col('future_hour_energy_consumption') - pl.col('past_hour_energy_consumption'))
+                    .alias('drop_energy_consumption')
+                )
+            )
+            .group_by(
+                self.build_id, 'month', 'weeknum', 'hour'
+            )
+            #max over week
+            .agg(
+                #find greatest spike
+                [
+                    pl.col('drop_energy_consumption').filter(
+                        filter_expr
+                    ).max().alias('increment_' + col_name)
+                    for col_name, filter_expr in filter_begin_expr_dict.items()
+                ] +
+                #finde lowest spike
+                [
+                    pl.col('drop_energy_consumption').filter(
+                        filter_expr
+                    ).min().alias('decrement_' + col_name)
+                    for col_name, filter_expr in filter_end_expr_dict.items()
+                ]
+            )
+            #min over month
+            .group_by(
+                self.build_id, 'month', 'hour'
+            )
+            .agg(
+                #find greatest conservative spike
+                [
+                    pl.min('increment_' + col_name)
+                    for col_name in begin_names
+                ] +
+                #finde lowest conservative spike
+                [
+                    pl.max('decrement_' + col_name)
+                    for col_name in end_names
+                ]
+            )
+            #now average of min max difference
+            .group_by(
+                self.build_id, 'hour'
+            )
+            .agg(
+                #find greatest conservative spike
+                [
+                    pl.mean('increment_' + col_name).alias('average_robust_increment_' + col_name)
+                    for col_name in begin_names
+                ] +
+                #finde lowest conservative spike
+                [
+                    pl.mean('decrement_' + col_name).alias('average_robust_decrement_' + col_name)
+                    for col_name in end_names
+                ]
+            )
+            #pivot
+            .group_by(self.build_id)
+            .agg(
+                [
+                    pl.col(col)
+                    .filter(
+                        pl.col('hour') == hour
+                    )
+                    .first()
+                    .alias(
+                        f'{col}_hour_{hour}'
+                    )
+                    for col, hour in product(begin_names + end_names, self.hour_list)
+                ]
+            )
+        )
+        return change_features
+
+    def __create_range_work_hour_features(self) -> pl.LazyFrame:
+        	
+        filter_begin_expr_dict, filter_end_expr_dict = self.__filter_range_work
+        
+        result = (    
+            self.base_data
+            .with_columns(
+                (
+                    pl.col('energy_consumption')
+                    .rolling_mean(window_size=4)
+                    .over(self.build_id)
+                    .alias('past_hour_energy_consumption')
+                ),
+                (
+                    pl.col('energy_consumption')
+                    .rolling_mean(window_size=4)
+                    .shift(-5)
+                    .over(self.build_id)
+                    .alias('future_hour_energy_consumption')
+                )
+            )
+            .with_columns(
+                (
+                    (pl.col('future_hour_energy_consumption') - pl.col('past_hour_energy_consumption'))
+                    .alias('drop_energy_consumption')
                 )
             )
             .group_by(
                 self.build_id, 'month', 'weeknum', 'day'
             )
-            #calculate range work
+            #calculate begin and end spike
             .agg(
-                #opening time has more consume than before
-                pl.col('timestamp').filter(
-                    (
-                        pl.col('difference_energy_consumption_past') == (
-                            pl.col('difference_energy_consumption_past')
-                            .filter(
-                                #only between 3-13, 
-                                (pl.col('hour')>=3) &
-                                (pl.col('hour')<=13)
-                            )
-                        ).max()
-                    ) &
-                    (pl.col('hour')>=3) &
-                    (pl.col('hour')<=13)
-                ).min().alias('time_begin'),
-                #opening time has less consume than before
-                pl.col('timestamp').filter(
-                    (
-                        pl.col('difference_energy_consumption_past') == (
-                            pl.col('difference_energy_consumption_past')
-                            .filter(
-                                #after 3, 
-                                pl.col('hour')>=3
-                            )
-                        ).min()
-                    ) &
-                    (pl.col('hour')>=3)
-                ).max().alias('time_end'),
+                [
+                    pl.col('timestamp').filter(
+                        (
+                            pl.col('drop_energy_consumption') == (
+                                pl.col('drop_energy_consumption')
+                                .filter(filter_expr)
+                            ).max()
+                        ) &
+                        filter_expr
+                    ).min().alias('time_' + col_name)
+                    for col_name, filter_expr in filter_begin_expr_dict.items()
+                ] +
+                [
+                    pl.col('timestamp').filter(
+                        (
+                            pl.col('difference_energy_consumption_past') == (
+                                pl.col('difference_energy_consumption_past')
+                                .filter(filter_expr)
+                            ).min()
+                        ) &
+                        filter_expr
+                    ).max().alias('time_' + col_name)
+                    for col_name, filter_expr in filter_end_expr_dict.items()
+                ]
             )
             .with_columns(
-                (pl.col('time_end')-pl.col('time_begin')).dt.total_minutes().alias('range_work')
+                (pl.col('time_com_end_workday')-pl.col('time_com_begin_workday')).dt.total_hours().alias('com_range_work_workday'),
+                (pl.col('time_com_end_weekend')-pl.col('time_com_begin_weekend')).dt.total_hours().alias('com_range_work_weekend'),
+
+                (pl.col('time_res_end_workday')-pl.col('time_res_begin_workday')).dt.total_hours().alias('res_range_work_workday'),
+                (pl.col('time_res_end_weekend')-pl.col('time_res_begin_weekend')).dt.total_hours().alias('res_range_work_weekend'),
             )
-            #max over weeknum
             .group_by(
                 self.build_id, 'month', 'weeknum'
             )
+            #most favorable measure over weeknum
             .agg(
-                pl.col('range_work').max()
+                #range work
+                [
+                    pl.max(range_col)
+                    for range_col in ['com_range_work_workday', 'com_range_work_weekend', 'res_range_work_workday', 'res_range_work_weekend']
+                ] +
+                #conservative begin
+                [
+                    pl.min(begin_time)
+                    for begin_time in ['time_com_begin_workday', 'time_com_begin_weekend', 'time_res_begin_workday', 'time_res_begin_weekend']
+                ] +
+                #conservative end
+                [
+                    pl.max(end_time)
+                    for end_time in ['time_com_end_workday', 'time_com_end_weekend', 'time_res_end_workday', 'time_res_end_weekend']
+                ]
             )
-            #min over month
+            #conservative over month
             .group_by(
                 self.build_id, 'month'
             )
             .agg(
-                pl.col('range_work').min()
+                #range work
+                [
+                    pl.min(range_col)
+                    for range_col in ['com_range_work_workday', 'com_range_work_weekend', 'res_range_work_workday', 'res_range_work_weekend']
+                ] +
+                #conservative begin
+                [
+                    pl.max(begin_time)
+                    for begin_time in ['time_com_begin_workday', 'time_com_begin_weekend', 'time_res_begin_workday', 'time_res_begin_weekend']
+                ] +
+                #conservative end
+                [
+                    pl.min(end_time)
+                    for end_time in ['time_com_end_workday', 'time_com_end_weekend', 'time_res_end_workday', 'time_res_end_weekend']
+                ]
             )
-            #now average of min max difference
+            #now average of min max difference and pivot
             .group_by(
                 self.build_id
             )
             .agg(
-                pl.col('range_work').mean().alias(
-                    'average_robust_range_work'
-                )
+                [
+                    pl.mean(col)
+                    for col in [
+                        #range
+                        'com_range_work_workday', 'com_range_work_weekend', 'res_range_work_workday', 'res_range_work_weekend',
+                        #begin
+                        'time_com_begin_workday', 'time_com_begin_weekend', 'time_res_begin_workday', 'time_res_begin_weekend',
+                        #end
+                        'time_com_end_workday', 'time_com_end_weekend', 'time_res_end_workday', 'time_res_end_weekend'
+                    ]
+                ] +
+                [
+                    pl.col(col).filter(
+                        (pl.col('month')==month)
+                    ).mean().alias(f'{col}_month_{month}')
+                    for col, month in product(
+                        ['com_range_work_workday', 'com_range_work_weekend', 'res_range_work_workday', 'res_range_work_weekend'],
+                        self.month_list
+                    )
+                ]
             )
         )
-        return minutes_drop_features
-            
+        return result
     def create_feature(self) -> None:   
         self.create_utils_features()
         
