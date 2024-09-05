@@ -48,21 +48,20 @@ from src.preprocess.initialize import PreprocessInit
         }
         return filter_begin_expr_dict, filter_end_expr_dict
          
+    def __create_hour_aggregation(self) -> pl.LazyFrame:
         """
-        Create daily average consumption over:
-        - season
-        - month
-        - week
+        Create multiple aggregation over bldg_id only
 
         Returns:
             pl.LazyFrame: query
         """
-        all_daily_consumption = (
+        all_hour_aggregation = (
             self.base_data
             .group_by(
                 'bldg_id',
             )
             .agg(
+                #DAILY AGGREGATION
                 [
                     (
                         pl.col('daily_consumption')
@@ -89,27 +88,8 @@ from src.preprocess.initialize import PreprocessInit
                         .alias(f'average_daily_consumption_week_{week}')
                     )
                     for week in self.weeknum_list
-                ]
-            )
-        )
-        return all_daily_consumption
-    
-    def __create_total_consumptions(self) -> pl.LazyFrame:
-        """
-        Total consumption over
-        - season
-        - month
-        - weeknum
-
-        Returns:
-            pl.LazyFrame: query
-        """
-        total_consumptions = (
-            self.base_data
-            .group_by(
-                'bldg_id',
-            )
-            .agg(
+                ] +
+                #TOTAL CONSUMPTION
                 [
                     (
                         pl.col('energy_consumption')
@@ -148,18 +128,8 @@ from src.preprocess.initialize import PreprocessInit
                 ] +
                 [
                     pl.col('energy_consumption').sum().alias('total_consumption_ever')
-                ]
-            )
-        )
-        return total_consumptions
-    
-    def __create_daily_holidays_feature(self) -> pl.LazyFrame:
-        daily_holiday_consumption = (
-            self.base_data
-            .group_by(
-                'bldg_id',
-            )
-            .agg(
+                ] +
+                #HOLIDAY AGGREGATION
                 [
                     (
                         pl.col('daily_consumption')
@@ -173,18 +143,8 @@ from src.preprocess.initialize import PreprocessInit
                         .mean()
                         .alias(f'average_daily_consumption_state_holiday')
                     )
-                ] 
-            )
-        )
-        return daily_holiday_consumption
-
-    def __create_tou_holidays_feature(self) -> pl.LazyFrame:
-        all_tou_consumption_holidays = (
-            self.base_data
-            .group_by(
-                'bldg_id', 
-            )
-            .agg(
+                ] +
+                #TOU HOLIDAYS
                 [
                     (
                         pl.col('energy_consumption')
@@ -208,155 +168,167 @@ from src.preprocess.initialize import PreprocessInit
                         .alias(f'average_hour_consumption_state_holiday_tou_{tou}')
                     )
                     for tou in self.tou_unique
-                ]
-            )
-        )
-        return all_tou_consumption_holidays
-        
-    def __create_variation_respect_state(self) -> pl.LazyFrame:
-        total_variation_consumptions = (
-            self.base_data
-            .group_by(
-                'bldg_id', 'state'
-            )
-            .agg(
+                ] +
+                #SLICE HOUR AGGREGATION
                 [
                     (
                         pl.col('energy_consumption')
-                        .filter(pl.col('season')==season)
-                        .sum()
-                        .alias(f'total_consumption_season_{season}_vs_state')
+                        .filter(
+                            (pl.col('season')==season)&
+                            (pl.col('tou')==tou)
+                        )
+                        .mean()
+                        .alias(f'average_hour_consumption_season_{season}_tou_{tou}')
                     )
-                    for season in self.season_list
+                    for season, tou in product(self.season_list, self.tou_unique)
                 ] +
                 [
                     (
                         pl.col('energy_consumption')
-                        .filter(pl.col('month')==month)
-                        .sum()
-                        .alias(f'total_consumption_month_{month}_vs_state')
+                        .filter(
+                            (pl.col('month')==month) &
+                            (pl.col('tou')==tou)
+                        )
+                        .mean()
+                        .alias(f'average_hour_consumption_month_{month}_tou_{tou}')
+                    )
+                    for month, tou in product(self.month_list, self.tou_unique)
+                ] +
+                [
+                    (
+                        pl.col('energy_consumption')
+                        .filter(
+                            (pl.col('weeknum')==week) &
+                            (pl.col('tou')==tou)
+                        )
+                        .mean()
+                        .alias(f'average_hour_consumption_week_{week}_tou_{tou}')
+                    )
+                    for week, tou in product(self.weeknum_list, self.tou_unique)
+                ] +
+                #SLICE DAY AGGREGATION
+                [
+                    (
+                        pl.col('energy_consumption')
+                        .filter(
+                            (pl.col('season')==season) &
+                            (pl.col('is_weekend')==is_weekend)
+                        )
+                        .mean()
+                        .alias(f'average_hour_consumption_season_{season}_is_weekend_{is_weekend}')
+                    )
+                    for season, is_weekend in product(self.season_list, [0, 1])
+                ] +
+                [
+                    (
+                        pl.col('energy_consumption')
+                        .filter(
+                            (pl.col('month')==month) &
+                            (pl.col('is_weekend')==is_weekend)
+                        )
+                        .mean()
+                        .alias(f'average_hour_consumption_month_{month}_is_weekend_{is_weekend}')
+                    )
+                    for month, is_weekend in product(self.month_list, [0, 1])
+                ] +
+                [
+                    (
+                        pl.col('energy_consumption')
+                        .filter(
+                            (pl.col('weeknum')==week) &
+                            (pl.col('is_weekend')==is_weekend)
+                        )
+                        .mean()
+                        .alias(f'average_hour_consumption_week_{week}_is_weekend_{is_weekend}')
+                    )
+                    for week, is_weekend in product(self.weeknum_list, [0, 1])
+                ] +
+                #PIVOTED INFORMATION
+                [
+                    (
+                        pl.col('energy_consumption')
+                        .filter(
+                            (pl.col('month')==month) &
+                            (pl.col('hour')==hour)
+                        )
+                        .mean()
+                        .alias(f'average_consumption_hour_{hour}_over_month_{month}')
+                    )
+                    for hour, month in product(self.hour_list, self.month_list)
+                ] +
+                #HOUR WEEKNUM AGGREGATION
+                [
+                    (
+                        pl.col('energy_consumption')
+                        .filter(
+                            (pl.col('season')==season) &
+                            (pl.col('weekday')==weekday)
+                        )
+                        .mean()
+                        .alias(f'average_hour_consumption_season_{season}_weekday_{weekday}')
+                    )
+                    for season, weekday in product(self.season_list, self.weekday_list)
+                ] +
+                [
+                    (
+                        pl.col('energy_consumption')
+                        .filter(
+                            (pl.col('month')==month) &
+                            (pl.col('weekday')==weekday)
+                        )
+                        .mean()
+                        .alias(f'average_hour_consumption_month_{month}_weekday_{weekday}')
+                    )
+                    for month, weekday in product(self.month_list, self.weekday_list)
+                ] +
+                #PEAK OVER MONTH
+                [
+                    (
+                        pl.col('energy_consumption')
+                        .filter(
+                            (pl.col('month')==month)
+                        )
+                        .mean()
+                        .alias(f'average_hour_consumption_month_{month}')
                     )
                     for month in self.month_list
                 ] +
                 [
                     (
                         pl.col('energy_consumption')
-                        .filter(pl.col('weekday')==weekday)
-                        .sum()
-                        .alias(f'total_consumption_weekday_{weekday}_vs_state')
-                    )
-                    for weekday in self.weekday_list
-                ] +
-                [
-                    (
-                        pl.col('energy_consumption')
-                        .filter(pl.col('hour')==hour)
-                        .sum()
-                        .alias(f'total_consumption_hour_{hour}_vs_state')
-                    )
-                    for hour in self.hour_list
-                ] +
-                [
-                    pl.col('energy_consumption').sum().alias('total_consumption_ever_vs_state')
-                ]
-            )
-            .with_columns(
-                [
-                    (
-                        pl.col(f'total_consumption_season_{season}_vs_state')/
-                        pl.col(f'total_consumption_season_{season}_vs_state').mean().over('state')
-                    )
-                    for season in self.season_list
-                ] +
-                [
-                    (
-                        pl.col(f'total_consumption_month_{month}_vs_state')/
-                        pl.col(f'total_consumption_month_{month}_vs_state').mean().over('state')
+                        .filter(
+                            (pl.col('month')==month)
+                        )
+                        .max()
+                        .alias(f'max_hour_consumption_month_{month}')
                     )
                     for month in self.month_list
                 ] +
                 [
                     (
-                        pl.col(f'total_consumption_weekday_{weekday}_vs_state')/
-                        pl.col(f'total_consumption_weekday_{weekday}_vs_state').mean().over('state')
+                        pl.col('energy_consumption')
+                        .filter(
+                            (pl.col('month')==month)
+                        )
+                        .min()
+                        .alias(f'min_hour_consumption_month_{month}')
                     )
-                    for weekday in self.weekday_list
+                    for month in self.month_list
                 ] +
                 [
                     (
-                        pl.col(f'total_consumption_hour_{hour}_vs_state')/
-                        pl.col(f'total_consumption_hour_{hour}_vs_state').mean().over('state')
-                    )
-                    for hour in self.hour_list
-                ] +
-                [
-                    pl.col('total_consumption_ever_vs_state')/pl.col('total_consumption_ever_vs_state').mean().over('state')
-                ]
-            )
-            .drop('state')
-        )
-        return total_variation_consumptions
-
-    def __create_hourminute_profile_consumption(self) -> list[pl.LazyFrame]:
-        #by hour and day
-        profile_consumption = (
-            self.minute_data
-            .group_by(
-                'bldg_id', 'day'
-            )
-            #find how many min/max for every hour in % and for every day
-            .agg(
-                [
-                    (
-                        pl.col('hour_minute')
+                        pl.col('energy_consumption')
                         .filter(
-                            pl.col('energy_consumption') == pl.col('energy_consumption').max()
+                            (pl.col('month')==month)
                         )
-                        .unique()
-                        .alias('hour_minute_max')
-                    ),
-                    (
-                        pl.col('hour_minute')
-                        .filter(
-                            pl.col('energy_consumption') == pl.col('energy_consumption').min()
-                        )
-                        .unique()
-                        .alias('hour_minute_min')
+                        .median()
+                        .alias(f'median_hour_consumption_month_{month}')
                     )
+                    for month in self.month_list
                 ]
             )
         )
-        max_profile = (
-            profile_consumption
-            .select('bldg_id', pl.col('hour_minute_max')).explode(['hour_minute_max'])
-            .group_by('bldg_id', 'hour_minute_max')
-            .agg(pl.len()/365)
-            .group_by('bldg_id').agg(
-                [
-                    pl.col('len').filter(pl.col('hour_minute_max')==hour_minute).alias(
-                        f'profile_max_hour_minute_{hour_minute}'
-                    )
-                    .first()
-                    for hour_minute in self.hour_minute_list
-                ]
-            )
-        )
-        min_profile = (
-            profile_consumption
-            .select('bldg_id', pl.col('hour_minute_min')).explode(['hour_minute_min'])
-            .group_by('bldg_id', 'hour_minute_min')
-            .agg(pl.len()/365)
-            .group_by('bldg_id').agg(
-                [
-                    pl.col('len').filter(pl.col('hour_minute_min')==hour_minute).alias(
-                        f'profile_min_hour_minute_{hour_minute}'
-                    )
-                    .first()
-                    for hour_minute in self.hour_minute_list
-                ]
-            )
-        )
-        return [max_profile, min_profile]
+        return all_hour_aggregation
     
     def __create_hour_profile_consumption(self) -> list[pl.LazyFrame]:
         #by hour and day
