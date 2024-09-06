@@ -58,7 +58,7 @@ if __name__ == '__main__':
             )
             for file_path in file_path_list:
                 
-                minute_result = (
+                hour_result = (
                     pl.scan_parquet(
                         os.path.join(
                             type_building_path,
@@ -76,18 +76,12 @@ if __name__ == '__main__':
                         pl.col('timestamp').cast(pl.Datetime),
                         pl.col('out.electricity.total.energy_consumption').cast(pl.Float64),
                         pl.col('in.state').cast(pl.Utf8),
-                        pl.col('bldg_id').cast(pl.Int64)
+                        pl.col('bldg_id').cast(pl.Int64),
+                        pl.col('timestamp').dt.offset_by('-15m').dt.truncate('1h')
                     )
-                    .with_columns(
-                        pl.col('timestamp').dt.offset_by('-15m')
-                    )
-                    .collect()
-                )
-                hour_result = (
-                    minute_result
                     .group_by(
                         'bldg_id', 'in.state', 'build_type',
-                        pl.col('timestamp').dt.truncate('1h')
+                        'timestamp'
                     )
                     .agg(
                         pl.col('out.electricity.total.energy_consumption').sum()
