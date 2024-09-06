@@ -36,7 +36,7 @@ if __name__ == '__main__':
     folder_map = config_dict['ADDITIONAL_DICT_INFO']
     total_number_data = len(
         glob(
-            '*/*/*.parquet'
+            'data_dump/*/*/*.parquet'
         )
     )
     bar_file = tqdm(total = total_number_data+1)
