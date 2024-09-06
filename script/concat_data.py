@@ -55,7 +55,6 @@ if __name__ == '__main__':
             path_folder
         )
         data_hour_list: list[pl.DataFrame] = []
-        data_minute_list: list[pl.DataFrame] = []
         
         for file_name in tqdm(os.listdir(dataset_chunk_folder)):
             minute_result = (
@@ -84,12 +83,10 @@ if __name__ == '__main__':
                 )
             )
             data_hour_list.append(hour_result)
-            data_minute_list.append(minute_result)
             
         data_hour = pl.concat(data_hour_list)
-        data_minute = pl.concat(data_minute_list)
         
-        for title_dataset_, dataset_ in [['hour', data_hour], ['minute', data_minute]]:
+        for title_dataset_, dataset_ in [['hour', data_hour]]:
             num_rows = dataset_.select(pl.len())
             num_cols = len(dataset_.collect_schema().names())
             
@@ -106,15 +103,9 @@ if __name__ == '__main__':
                 config_dict=config_dict, data=data_hour, logger=logger
             )
             mapper_dataset[f'{dataset_label}_data'] = mapper_data
-            data_minute = remap_category(
-                data=data_minute, mapper_mask_col=mapper_data
-            )
         else:
             data_hour = remap_category(
                 data=data_hour, mapper_mask_col=mapper_data
-            )
-            data_minute = remap_category(
-                data=data_minute, mapper_mask_col=mapper_data
             )
             
         logger.info(f'Starting saving {dataset_label} hour dataset')
@@ -122,13 +113,6 @@ if __name__ == '__main__':
             os.path.join(
                 config_dict['PATH_SILVER_PARQUET_DATA'],
                 config_dict[f'{dataset_label.upper()}_FEATURE_HOUR_FILE_NAME']
-            )
-        )
-        logger.info(f'Starting saving {dataset_label} minute dataset')
-        data_minute.write_parquet(
-            os.path.join(
-                config_dict['PATH_SILVER_PARQUET_DATA'],
-                config_dict[f'{dataset_label.upper()}_FEATURE_MINUTE_FILE_NAME']
             )
         )
 
