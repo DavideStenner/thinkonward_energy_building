@@ -4,6 +4,7 @@ import sys
 sys.path.append(os.getcwd())
 
 if __name__ == '__main__':
+    import gc
     import warnings
     import polars as pl
 
@@ -30,15 +31,15 @@ if __name__ == '__main__':
     #import and save label file
     logger.info('importing new data file')
 
-    data_hour_list: list[pl.LazyFrame] = []
+    data_hour_list: list[pl.DataFrame] = []
     
     folder_map = config_dict['ADDITIONAL_DICT_INFO']
-    total_number_data = len(
+    total_number_state = len(
         glob(
-            'data_dump/*/*/*.parquet'
+            'data_dump/*/state=*'
         )
     )
-    bar_file = tqdm(total = total_number_data+1)
+    bar_file = tqdm(total = total_number_state+1)
 
     for type_building, type_dict in folder_map.items():
         type_building_path: str = os.path.join(
@@ -48,6 +49,8 @@ if __name__ == '__main__':
         state_folder_list = os.listdir(type_building_path)
         
         for state_folder in state_folder_list:
+            _ = gc.collect()
+            
             state_string: str = state_folder.split('=')[-1]
             
             file_path_list: list[str] = os.listdir(
@@ -56,6 +59,8 @@ if __name__ == '__main__':
                     state_folder,
                 )
             )
+            state_df_list: list[pl.LazyFrame] = []
+            
             for file_path in file_path_list:
                 
                 hour_result = (
@@ -65,34 +70,39 @@ if __name__ == '__main__':
                             state_folder,
                             file_path
                         )
-                    ).select(
+                    )
+                    .select(
+                        'timestamp', 'out.electricity.total.energy_consumption', 'bldg_id'
+                    )
+                    .group_by(
+                        'bldg_id', 
                         (
                             pl.col('timestamp').cast(pl.Datetime)
                             .dt.offset_by('-15m').dt.truncate('1h')
-                        ),
-                        pl.col('out.electricity.total.energy_consumption').cast(pl.Float64), 
-                        pl.col('bldg_id').cast(pl.Int64),
+                        )
+                    )
+                    .agg(
+                        pl.col('out.electricity.total.energy_consumption').sum(),
                         pl.lit(state_string).cast(pl.Utf8).alias('in.state'),
                         pl.lit(type_building).cast(pl.Utf8).alias('build_type')
                     )
-                    .group_by(
-                        'bldg_id', 'in.state', 'build_type',
-                        'timestamp'
-                    )
-                    .agg(
-                        pl.col('out.electricity.total.energy_consumption').sum()
-                    )
                 )
-                data_hour_list.append(hour_result)
+                state_df_list.append(hour_result)
                 
-                bar_file.update(1)
+            state_df: pl.DataFrame = (
+                pl.concat(state_df_list, how='vertical')
+                .collect()
+            ) 
+            bar_file.update(1)
+
+            data_hour_list.append(state_df)
+                
     
     bar_file.close()
     logger.info('Collecting dataset')
     
     data_hour: pl.DataFrame = (
         pl.concat(data_hour_list, how='vertical')
-        .collect()
     )
     
     for title_dataset_, dataset_ in [['hour', data_hour]]:
