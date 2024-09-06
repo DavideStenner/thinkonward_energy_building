@@ -17,8 +17,8 @@ class PreprocessInit(BaseInit):
 
         self.inference: bool = False
         self.additional_data: bool = (
-            False if 'additional' not in config_dict.keys() else
-            config_dict['additional']
+            False if 'add' not in config_dict.keys() else
+            config_dict['add']
         )
         
         self._initialize_all()

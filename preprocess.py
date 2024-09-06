@@ -5,12 +5,12 @@ if __name__=='__main__':
     from src.preprocess.pipeline import PreprocessPipeline
     
     parser = argparse.ArgumentParser()
-    parser.add_argument('--additional', action='store_true')
+    parser.add_argument('--add', action='store_true')
 
     args = parser.parse_args()
     
     config_dict = import_config()
-    config_dict['additional'] = args.additional
+    config_dict['add'] = args.add
     
     pnl_preprocessor = PreprocessPipeline(
         config_dict=config_dict, 
