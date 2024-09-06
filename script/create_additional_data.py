@@ -106,6 +106,7 @@ if __name__ == '__main__':
     data_hour = remap_category(
         data=data_hour, mapper_mask_col=mapper_label['train_data']
     )
+    logger.info('Scanning metadata')
 
     #METADATA
     metadata_res = (
@@ -169,6 +170,8 @@ if __name__ == '__main__':
         )
     )
 
+    logger.info(f'Filtered metadata with {metadata.select(pl.len()).item()}')
+
     #remap id
     id_build_list: list[str] = (
         metadata
@@ -182,7 +185,7 @@ if __name__ == '__main__':
     )
     mapper_id = {
         key_: 30_000 + id_
-        for id_, key_ in enumerate(id_build_list,)
+        for id_, key_ in enumerate(id_build_list)
     }
     #remap id on dataset
     data_hour = (
