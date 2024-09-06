@@ -30,7 +30,7 @@ if __name__ == '__main__':
     #import and save label file
     logger.info('importing new data file')
 
-    data_hour_list = []
+    data_hour_list: list[pl.LazyFrame] = []
     
     folder_map = config_dict['ADDITIONAL_DICT_INFO']
     total_number_data = len(
@@ -66,18 +66,14 @@ if __name__ == '__main__':
                             file_path
                         )
                     ).select(
-                        pl.col('timestamp'), 
-                        pl.col('out.electricity.total.energy_consumption'), 
-                        pl.col('bldg_id'),
+                        (
+                            pl.col('timestamp').cast(pl.Datetime)
+                            .dt.offset_by('-15m').dt.truncate('1h')
+                        ),
+                        pl.col('out.electricity.total.energy_consumption').cast(pl.Float64), 
+                        pl.col('bldg_id').cast(pl.Int64),
                         pl.lit(state_string).cast(pl.Utf8).alias('in.state'),
                         pl.lit(type_building).cast(pl.Utf8).alias('build_type')
-                    )
-                    .with_columns(
-                        pl.col('timestamp').cast(pl.Datetime),
-                        pl.col('out.electricity.total.energy_consumption').cast(pl.Float64),
-                        pl.col('in.state').cast(pl.Utf8),
-                        pl.col('bldg_id').cast(pl.Int64),
-                        pl.col('timestamp').dt.offset_by('-15m').dt.truncate('1h')
                     )
                     .group_by(
                         'bldg_id', 'in.state', 'build_type',
@@ -94,8 +90,11 @@ if __name__ == '__main__':
     bar_file.close()
     logger.info('Collecting dataset')
     
-    data_hour: pl.DataFrame = pl.concat(data_hour_list)
-
+    data_hour: pl.DataFrame = (
+        pl.concat(data_hour_list, how='vertical')
+        .collect()
+    )
+    
     for title_dataset_, dataset_ in [['hour', data_hour]]:
         num_rows = dataset_.select(pl.len()).item()
         num_cols = len(dataset_.collect_schema().names())
