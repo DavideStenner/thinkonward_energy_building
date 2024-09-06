@@ -31,7 +31,6 @@ if __name__ == '__main__':
     logger.info('importing new data file')
 
     data_hour_list = []
-    data_minute_list = []
     
     folder_map = config_dict['ADDITIONAL_DICT_INFO']
     total_number_data = len(
@@ -95,7 +94,6 @@ if __name__ == '__main__':
                     )
                 )
                 data_hour_list.append(hour_result)
-                data_minute_list.append(minute_result)
                 
                 bar_file.update(1)
     
@@ -103,21 +101,17 @@ if __name__ == '__main__':
     logger.info('Collecting dataset')
     
     data_hour: pl.DataFrame = pl.concat(data_hour_list)
-    data_minute: pl.DataFrame = pl.concat(data_minute_list)
 
-    for title_dataset_, dataset_ in [['hour', data_hour], ['minute', data_minute]]:
+    for title_dataset_, dataset_ in [['hour', data_hour]]:
         num_rows = dataset_.select(pl.len()).item()
         num_cols = len(dataset_.collect_schema().names())
         
         logger.info(f'{title_dataset_} file has {num_rows} rows and {num_cols} cols')
         
-    logger.info('Remapping dataset hour, minute')
+    logger.info('Remapping dataset hour')
 
     data_hour = remap_category(
         data=data_hour, mapper_mask_col=mapper_label['train_data']
-    )
-    data_minute = remap_category(
-        data=data_minute, mapper_mask_col=mapper_label['train_data']
     )
 
     #METADATA
@@ -215,22 +209,6 @@ if __name__ == '__main__':
         )
     )
 
-    data_minute = (
-        data_minute
-        .with_columns(
-            (
-                (
-                    pl.col('bldg_id').cast(pl.Utf8) + pl.col('build_type')
-                )
-                .replace(mapper_id)
-                .cast(pl.Int64)
-                .alias('bldg_id')
-            )
-        )
-        .select(
-            ['timestamp', 'out.electricity.total.energy_consumption', 'in.state', 'bldg_id']
-        )
-    )
 
     #remap metadata
     metadata = (
@@ -253,14 +231,6 @@ if __name__ == '__main__':
         data=metadata, mapper_mask_col=mapper_label['train_label']
     )
     
-    logger.info(f'Starting saving minute dataset')
-    data_minute.write_parquet(
-        os.path.join(
-            config_dict['PATH_SILVER_PARQUET_DATA'],
-            'train_data_minute_additional.parquet'
-        )
-    )
-
     logger.info(f'Starting saving hour dataset')
     data_hour.write_parquet(
         os.path.join(
