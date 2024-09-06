@@ -73,7 +73,7 @@ class PreprocessImport(BaseImport, PreprocessInit):
                 pl.col('timestamp').cast(pl.Datetime),
                 pl.col('out.electricity.total.energy_consumption').cast(pl.Float64),
                 pl.col('in.state').cast(pl.UInt8),
-                pl.col(self.build_id).cast(pl.UInt16),
+                pl.col(self.build_id).cast(pl.UInt32),
             )
             .rename(
                 {
@@ -86,7 +86,7 @@ class PreprocessImport(BaseImport, PreprocessInit):
         if not self.inference:
             self.label_data = self.label_data.with_columns(
                 [
-                    pl.col(self.build_id).cast(pl.UInt16)
+                    pl.col(self.build_id).cast(pl.UInt32)
                 ] +
                 [
                     pl.col(col).cast(pl.UInt8)
