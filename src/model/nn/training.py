@@ -304,8 +304,8 @@ class TabularFFTrainer(ModelTrain, TabularFFInit):
             self.training_logger.info(f'\n\nStarting fold {fold_}\n\n\n')
             self.training_logger.info('Collecting dataset')
             
-            # if 'binary' in self.model_used:
-            #     self.train_binary(fold_=fold_)
+            if 'binary' in self.model_used:
+                self.train_binary(fold_=fold_)
             
             if 'commercial' in self.model_used:
                 self.train_commercial(fold_=fold_)
