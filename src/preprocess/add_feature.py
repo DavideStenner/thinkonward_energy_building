@@ -1183,7 +1183,8 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
 
     def merge_all(self) -> None:
         self.data = self.base_data.select(self.build_id, 'state').unique()
-
+        starting_num_colum = len(self.data.collect_schema().names())
+        
         for lazy_feature_dataframe in self.lazy_feature_list:
             self.data = (
                 self.data
@@ -1200,3 +1201,6 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
                 on='state', how='left'
             )
         )
+        ending_num_colum = len(self.data.collect_schema().names())
+
+        self.preprocess_logger.info(f'Added {ending_num_colum-starting_num_colum} new columns')
