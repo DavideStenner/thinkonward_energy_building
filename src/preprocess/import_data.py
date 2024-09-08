@@ -71,7 +71,7 @@ class PreprocessImport(BaseImport, PreprocessInit):
         self.base_data = (
             self.base_data.with_columns(
                 pl.col('timestamp').cast(pl.Datetime),
-                pl.col('out.electricity.total.energy_consumption').cast(pl.Float64),
+                pl.col('out.electricity.total.energy_consumption').cast(pl.Float32),
                 pl.col('in.state').cast(pl.UInt8),
                 pl.col(self.build_id).cast(pl.UInt32),
             )
