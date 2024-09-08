@@ -38,15 +38,13 @@ foreach ($release in $releases){
 	}
 	
 	# List and sort the objects in the source folder
-	$PathCurrentFolder = "$sourceFolder$release$folderToData$upgradeId"
-	
-	$Folders = aws s3 ls "s3://$PathCurrentFolder" --no-sign-request | Sort-Object
+	$currentBucket = "s3://$sourceFolder$release$folderToData$upgradeId"
+	$Folders = aws s3 ls $currentBucket --no-sign-request | Sort-Object
 
 	foreach ($folder in $Folders) {
 		#find state name
 		$folderName = ($folder -split '\s+')[-1]
-		$stateName = ($folderName -split '=')[-1]
-		$stateName = $stateName -replace '/', ''
+		$stateName = ($folderName -split '=')[-1] -replace '/', ''
 
 		#they put some wrong state as NA
 		if ($stateName -notin $stateList){
@@ -63,6 +61,7 @@ foreach ($release in $releases){
 		If (!(test-path $localFolderPath)){
 			mkdir $localFolderPath
 		}
+		$fileList = aws s3 ls "$currentBucket$folderName" --no-sign-request
 		
 		#list all and get N random
 		$fileList = aws s3 ls "s3://$PathCurrentFolder$folderName" --no-sign-request | Sort-Object { Get-Random }
