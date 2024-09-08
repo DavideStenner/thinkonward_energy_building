@@ -19,3 +19,10 @@ python -m pip install -e .
 //clean egg-info artifact
 python setup.py clean
 ```
+
+```
+command.ps1
+python create_additional_data.py
+python create_economics_dataset.py
+python concat_data.py
+```
