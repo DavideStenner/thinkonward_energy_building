@@ -12,8 +12,8 @@ $stateList = @("AK", "AL", "AR", "AZ", "CA", "CO", "CT", "DC", "DE", "FL", "GA",
 $N = [int](Read-Host "Enter Number of Home to scrape (-1 if no random extraction)")
 
 if ($N -gt 0) {
-$EstimatedNBuilding = $N*2*51
-Write-Host "Estimated number of new buildings: $EstimatedNBuilding"
+	$EstimatedNBuilding = $N*2*51
+	Write-Host "Estimated number of new buildings: $EstimatedNBuilding"	
 }
 else {
 	Write-Host "No sampling, taking every data"
@@ -64,13 +64,13 @@ foreach ($release in $releases){
 		$fileList = aws s3 ls "$currentBucket$folderName" --no-sign-request
 		
 		if ($N -gt 0) {
-		#list all and get N random
+			#list all and get N random
 			$fileList = $fileList | Sort-Object { Get-Random }
-		
-		# Select the first N objects
+					
+			# Select the first N objects
 			$fileList = $fileList | Select-Object -First $N
 		}
-		
+
 		#define starting command
 		$awsBaseCommand = "aws s3 cp `"$currentBucket$folderName`" $localFolderPath --recursive --no-sign-request --exclude `"*`""
 		$pythonCommand = "script/clean_data.py --state=$stateName --type_building=$typeBuildFolderName"
@@ -85,7 +85,7 @@ foreach ($release in $releases){
 			$numFile = $numFile + 1
 
 			if ($numFile -eq 1000){
-		#download every selected file
+				#download every selected file
 				Invoke-Expression $awsCommand
 				Start-Sleep 1
 
@@ -94,9 +94,9 @@ foreach ($release in $releases){
 			}
 		}
 		if($numFile -gt 0){
-		Invoke-Expression $awsCommand
+			Invoke-Expression $awsCommand
 		}
-		
+
 		Write-Host "done"
 		"done" | Out-File -FilePath "log/dumping.txt" -Append
 
