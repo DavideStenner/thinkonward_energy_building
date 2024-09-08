@@ -63,11 +63,13 @@ foreach ($release in $releases){
 		}
 		$fileList = aws s3 ls "$currentBucket$folderName" --no-sign-request
 		
+		if ($N -gt 0) {
 		#list all and get N random
-		$fileList = aws s3 ls "s3://$PathCurrentFolder$folderName" --no-sign-request | Sort-Object { Get-Random }
+			$fileList = $fileList | Sort-Object { Get-Random }
 		
 		# Select the first N objects
-		$firstNFiles = $fileList | Select-Object -First $N
+			$fileList = $fileList | Select-Object -First $N
+		}
 		
 		#define starting command
 		$awsCommand = "aws s3 cp `"s3://$PathCurrentFolder$folderName`" $localFolderPath --recursive --no-sign-request --exclude `"*`""
