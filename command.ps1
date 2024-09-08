@@ -6,12 +6,18 @@ $folderToData = "/timeseries_individual_buildings/by_state/"
 $destinationFolder = "data_dump/"
 $stateList = @("AK", "AL", "AR", "AZ", "CA", "CO", "CT", "DC", "DE", "FL", "GA", "HI", "IA", "ID", "IL", "IN", "KS", "KY", "LA", "MA", "MD", "ME", "MI", "MN", "MO", "MS", "MT", "NC", "ND", "NE", "NH", "NJ", "NM", "NV", "NY", "OH", "OK", "OR", "PA", "RI", "SC", "SD", "TN", "TX", "UT", "VA", "VT", "WA", "WI", "WV", "WY")
 
+& ".venv\Scripts\activate"
+
 # Set the number of files you want to copy
 $N = [int](Read-Host "Enter Number of Home to scrape (-1 if no random extraction)")
-$EstimatedNBuilding = $N*2*51
 
-& ".venv\Scripts\activate"
+if ($N -gt 0) {
+$EstimatedNBuilding = $N*2*51
 Write-Host "Estimated number of new buildings: $EstimatedNBuilding"
+}
+else {
+	Write-Host "No sampling, taking every data"
+}
 #reset log
 "" | Out-File -FilePath "log/dumping.txt"
 
