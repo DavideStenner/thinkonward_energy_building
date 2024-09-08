@@ -7,9 +7,10 @@ $destinationFolder = "data_dump/"
 $stateList = @("AK", "AL", "AR", "AZ", "CA", "CO", "CT", "DC", "DE", "FL", "GA", "HI", "IA", "ID", "IL", "IN", "KS", "KY", "LA", "MA", "MD", "ME", "MI", "MN", "MO", "MS", "MT", "NC", "ND", "NE", "NH", "NJ", "NM", "NV", "NY", "OH", "OK", "OR", "PA", "RI", "SC", "SD", "TN", "TX", "UT", "VA", "VT", "WA", "WI", "WV", "WY")
 
 # Set the number of files you want to copy
-$N = [int](Read-Host "Enter Number of Home to scrape")
+$N = [int](Read-Host "Enter Number of Home to scrape (-1 if no random extraction)")
 $EstimatedNBuilding = $N*2*51
 
+& ".venv\Scripts\activate"
 Write-Host "Estimated number of new buildings: $EstimatedNBuilding"
 #reset log
 "" | Out-File -FilePath "log/dumping.txt"
@@ -20,6 +21,7 @@ foreach ($release in $releases){
 	Write-Host "Starting $release"
 	"Starting $release" | Out-File -FilePath "log/dumping.txt" -Append
 
+	#define utils byt type
 	if ($release -eq "2024/comstock_amy2018_release_1"){
 		$upgradeId = "upgrade=32/"
 		$typeBuildFolderName = "commercial"
@@ -35,6 +37,7 @@ foreach ($release in $releases){
 	$Folders = aws s3 ls "s3://$PathCurrentFolder" --no-sign-request | Sort-Object
 
 	foreach ($folder in $Folders) {
+		#find state name
 		$folderName = ($folder -split '\s+')[-1]
 		$stateName = ($folderName -split '=')[-1]
 		$stateName = $stateName -replace '/', ''
@@ -54,7 +57,8 @@ foreach ($release in $releases){
 		If (!(test-path $localFolderPath)){
 			mkdir $localFolderPath
 		}
-
+		
+		#list all and get N random
 		$fileList = aws s3 ls "s3://$PathCurrentFolder$folderName" --no-sign-request | Sort-Object { Get-Random }
 		
 		# Select the first N objects
@@ -62,17 +66,26 @@ foreach ($release in $releases){
 		
 		#define starting command
 		$awsCommand = "aws s3 cp `"s3://$PathCurrentFolder$folderName`" $localFolderPath --recursive --no-sign-request --exclude `"*`""
+		$pythonCommand = "script/clean_data.py --state=$stateName --type_building=$typeBuildFolderName"
 		
 		#add every include file
 		foreach ($file in $firstNFiles) {
 			$fileName = ($file -split '\s+')[-1]
 			$awsCommand += " --include `"$fileName`""
 		}
+		#download every selected file
 		Invoke-Expression $awsCommand
 		
 		Write-Host "done"
 		"done" | Out-File -FilePath "log/dumping.txt" -Append
 
+		#read and concat every file, after that delete every chunk file
+		Write-Host "reducing file size and deleting multiple dataset"
+		"reducing file size and deleting multiple dataset" | Out-File -FilePath "log/dumping.txt" -Append
+		Start-Process -FilePath ".\.venv\Scripts\python.exe" -ArgumentList $pythonCommand -NoNewWindow -Wait
+
+		Write-Host "done"
+		"done" | Out-File -FilePath "log/dumping.txt" -Append
 		Start-Sleep -Seconds 10
 
 	}
