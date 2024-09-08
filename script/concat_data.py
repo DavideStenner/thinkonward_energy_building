@@ -3,6 +3,7 @@ import sys
 sys.path.append(os.getcwd())
 
 if __name__ == '__main__':
+    """Concatenate dataset from organizer"""
     import json
     import polars as pl
     

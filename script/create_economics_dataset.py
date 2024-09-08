@@ -3,6 +3,7 @@ import sys
 sys.path.append(os.getcwd())
 
 if __name__ == '__main__':
+    """Create economics dataset"""
     import json
     import polars as pl
     

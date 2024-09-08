@@ -4,6 +4,7 @@ import sys
 sys.path.append(os.getcwd())
 
 if __name__ == '__main__':
+    """Create additional data with scraped home"""
     import gc
     import warnings
     import polars as pl
