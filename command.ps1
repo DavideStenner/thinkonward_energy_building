@@ -72,16 +72,30 @@ foreach ($release in $releases){
 		}
 		
 		#define starting command
-		$awsCommand = "aws s3 cp `"s3://$PathCurrentFolder$folderName`" $localFolderPath --recursive --no-sign-request --exclude `"*`""
+		$awsBaseCommand = "aws s3 cp `"$currentBucket$folderName`" $localFolderPath --recursive --no-sign-request --exclude `"*`""
 		$pythonCommand = "script/clean_data.py --state=$stateName --type_building=$typeBuildFolderName"
 		
-		#add every include file
-		foreach ($file in $firstNFiles) {
+		$numFile = 0
+		$awsCommand = $awsBaseCommand
+
+		#add every include file in bacth of 1000 file each
+		foreach ($file in $fileList) {
 			$fileName = ($file -split '\s+')[-1]
 			$awsCommand += " --include `"$fileName`""
-		}
+			$numFile = $numFile + 1
+
+			if ($numFile -eq 1000){
 		#download every selected file
+				Invoke-Expression $awsCommand
+				Start-Sleep 1
+
+				$numFile = 0
+				$awsCommand = $awsBaseCommand
+			}
+		}
+		if($numFile -gt 0){
 		Invoke-Expression $awsCommand
+		}
 		
 		Write-Host "done"
 		"done" | Out-File -FilePath "log/dumping.txt" -Append
