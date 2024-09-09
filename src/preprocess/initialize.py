@@ -35,7 +35,6 @@ class PreprocessInit(BaseInit):
         
         self.month_list: list[int] = list(range(1, 12+1))
         self.season_list: list[int] = list(range(3))
-        self.weeknum_list: list[int] = list(range(1, 53))
         self.weekday_list: list[int] = list(range(1, 8))
         self.hour_list: list[int] = list(range(24))
         
