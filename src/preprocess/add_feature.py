@@ -1201,6 +1201,3 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
                 on='state', how='left'
             )
         )
-        ending_num_colum = len(self.data.collect_schema().names())
-
-        self.preprocess_logger.info(f'Added {ending_num_colum-starting_num_colum} new columns')

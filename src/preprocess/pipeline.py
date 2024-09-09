@@ -128,18 +128,24 @@ class PreprocessPipeline(BasePipeline, PreprocessImport, PreprocessAddFeature, P
         _ = gc.collect()
 
     def preprocess_train(self) -> None:
+        starting_num_colum = len(self._get_col_name(self.data))
+        
         self.preprocess_logger.info('beginning preprocessing training dataset')
         self.preprocess_logger.info('Creating feature')
         self.create_feature()
 
         self.preprocess_logger.info('Merging all')
         self.merge_all()
-        
+
+        ending_num_colum = len(self._get_col_name(self.data))
+
+        self.preprocess_logger.info(f'Added {ending_num_colum-starting_num_colum} new columns')
+
         self.preprocess_logger.info('Collecting Dataset')
 
         self.data: pl.DataFrame = self.data.collect()
         self.preprocess_logger.info(
-            f'Collected dataset with {len(self._get_col_name(self.data))} columns and {self._get_number_rows(self.data)} rows'
+            f'Collected dataset with {ending_num_colum} columns and {self._get_number_rows(self.data)} rows'
         )
 
         _ = gc.collect()
