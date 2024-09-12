@@ -77,6 +77,10 @@ foreach ($release in $releases){
 		
 		$numFile = 0
 		$awsCommand = $awsBaseCommand
+		$missingNumFile = $fileList.Count
+
+		Write-Host "$missingNumFile total number of file to download"
+		"$missingNumFile total number of file to download" | Out-File -FilePath "log/dumping.txt" -Append
 
 		#add every include file in bacth of 1000 file each
 		foreach ($file in $fileList) {
@@ -90,7 +94,11 @@ foreach ($release in $releases){
 				Start-Sleep 1
 
 				$numFile = 0
+				$missingNumFile -= 1000
 				$awsCommand = $awsBaseCommand
+
+				Write-Host "Remaining $missingNumFile file"
+				"Remaining $missingNumFile file" | Out-File -FilePath "log/dumping.txt" -Append
 			}
 		}
 		if($numFile -gt 0){
