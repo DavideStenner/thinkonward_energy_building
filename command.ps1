@@ -115,7 +115,7 @@ foreach ($release in $releases){
 
 		Write-Host "done"
 		"done" | Out-File -FilePath "log/dumping.txt" -Append
-		Start-Sleep -Seconds 10
+		Start-Sleep -Seconds 60
 
 	}
 }
