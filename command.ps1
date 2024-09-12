@@ -90,9 +90,13 @@ foreach ($release in $releases){
 
 			if ($numFile -eq 1000){
 				#download every selected file
-				Invoke-Expression $awsCommand
-				Start-Sleep 1
-
+				Try {
+					Invoke-Expression $awsCommand
+					Start-Sleep 1	
+				} Catch {
+					Write-Host "Caught an error: $_"
+				}
+				
 				$numFile = 0
 				$missingNumFile -= 1000
 				$awsCommand = $awsBaseCommand
