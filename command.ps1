@@ -46,6 +46,8 @@ foreach ($release in $releases){
 		$folderName = ($folder -split '\s+')[-1]
 		$stateName = ($folderName -split '=')[-1] -replace '/', ''
 
+		$pythonCommand = "script/clean_data.py --state=$stateName --type_building=$typeBuildFolderName"
+
 		#they put some wrong state as NA
 		if ($stateName -notin $stateList){
 			Write-Host "Skipping $stateName as not a US State"
@@ -69,44 +71,58 @@ foreach ($release in $releases){
 					
 			# Select the first N objects
 			$fileList = $fileList | Select-Object -First $N
-		}
-
-		#define starting command
-		$awsBaseCommand = "aws s3 cp `"$currentBucket$folderName`" $localFolderPath --recursive --no-sign-request --exclude `"*`""
-		$pythonCommand = "script/clean_data.py --state=$stateName --type_building=$typeBuildFolderName"
 		
-		$numFile = 0
-		$awsCommand = $awsBaseCommand
-		$missingNumFile = $fileList.Count
+			#define starting command
+			$awsBaseCommand = "aws s3 cp `"$currentBucket$folderName`" $localFolderPath --recursive --no-sign-request --exclude `"*`""
+			
+			$numFile = 0
+			$awsCommand = $awsBaseCommand
+			$missingNumFile = $fileList.Count
 
-		Write-Host "$missingNumFile total number of file to download"
-		"$missingNumFile total number of file to download" | Out-File -FilePath "log/dumping.txt" -Append
+			Write-Host "$missingNumFile total number of file to download"
+			"$missingNumFile total number of file to download" | Out-File -FilePath "log/dumping.txt" -Append
 
-		#add every include file in bacth of 1000 file each
-		foreach ($file in $fileList) {
-			$fileName = ($file -split '\s+')[-1]
-			$awsCommand += " --include `"$fileName`""
-			$numFile = $numFile + 1
+			#add every include file in bacth of 1000 file each
+			foreach ($file in $fileList) {
+				$fileName = ($file -split '\s+')[-1]
+				$awsCommand += " --include `"$fileName`""
+				$numFile = $numFile + 1
 
-			if ($numFile -eq 1000){
-				#download every selected file
-				Try {
-					Invoke-Expression $awsCommand
-					Start-Sleep 1	
-				} Catch {
-					Write-Host "Caught an error: $_"
+				if ($numFile -eq 1000){
+					#download every selected file
+					Try {
+						Invoke-Expression $awsCommand
+						Start-Sleep 1	
+					} Catch {
+						Write-Host "Caught an error: $_"
+					}
+					
+					$numFile = 0
+					$missingNumFile -= 1000
+					$awsCommand = $awsBaseCommand
+
+					Write-Host "Remaining $missingNumFile file"
+					"Remaining $missingNumFile file" | Out-File -FilePath "log/dumping.txt" -Append
 				}
-				
-				$numFile = 0
-				$missingNumFile -= 1000
-				$awsCommand = $awsBaseCommand
-
-				Write-Host "Remaining $missingNumFile file"
-				"Remaining $missingNumFile file" | Out-File -FilePath "log/dumping.txt" -Append
+			}
+			if($numFile -gt 0){
+				Invoke-Expression $awsCommand
 			}
 		}
-		if($numFile -gt 0){
-			Invoke-Expression $awsCommand
+		else{
+			$missingNumFile = $fileList.Count
+
+			Write-Host "$missingNumFile total number of file to download"
+			"$missingNumFile total number of file to download" | Out-File -FilePath "log/dumping.txt" -Append
+
+			$awsCommand = "aws s3 cp `"$currentBucket$folderName`" $localFolderPath --recursive --no-sign-request --cli-read-timeout 0 --cli-connect-timeout 0"
+
+			Try {
+				Invoke-Expression $awsCommand
+				Start-Sleep 1	
+			} Catch {
+				Write-Host "Caught an error: $_"
+			}
 		}
 
 		Write-Host "done"
@@ -120,6 +136,5 @@ foreach ($release in $releases){
 		Write-Host "done"
 		"done" | Out-File -FilePath "log/dumping.txt" -Append
 		Start-Sleep -Seconds 60
-
 	}
 }
