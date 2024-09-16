@@ -34,25 +34,54 @@ if __name__ == '__main__':
 
     #COLLECT BUILD ID
     #used only to filter metadata dataset
-    bldg_df_list = pl.concat(
-        [
-            pl.DataFrame(
-                {
-                    'bldg_id': [
-                        path_file.split('\\')[-1].split('-')[0] 
-                        for path_file in glob(
-                            f'data_dump/{type_}/*/*.parquet'
-                        )
-                    ],
-                    'build_type': [type_] * len(
+    bldg_df_dict = {
+        'residential': (
+            pl.concat(
+                [
+                    (
+                        pl.scan_parquet(path_file)
+                        .select('bldg_id')
+                        .unique()
+                        .with_columns(pl.lit('residential').alias('build_type').cast(pl.Utf8))
+                        .collect()
+                    )
+                    for path_file in tqdm(
                         glob(
-                            f'data_dump/{type_}/*/*.parquet'
+                            f'data_dump/residential/*/*.parquet'
                         )
                     )
-                }
-            ).with_columns(pl.col('bldg_id').cast(pl.Int64))
-            for type_ in ['commercial', 'residential']
-        ]
+                ]
+            )
+        ),
+        'commercial': (
+            pl.concat(
+                [
+                    (
+                        pl.scan_parquet(path_file)
+                        .select('bldg_id')
+                        .unique()
+                        .with_columns(pl.lit('commercial').alias('build_type').cast(pl.Utf8))
+                        .collect()
+                    )
+                    for path_file in tqdm(
+                        glob(
+                            f'data_dump/commercial/*/*.parquet'
+                        )
+                    )
+                ]
+            )
+        )
+    }
+    bldg_df_dict['residential_id'] = bldg_df_dict['residential'].select('bldg_id').unique()
+    bldg_df_dict['commercial_id'] = bldg_df_dict['commercial'].select('bldg_id').unique()
+
+    num_residential = bldg_df_dict['residential_id'].select(pl.len()).item()
+    num_commercial = bldg_df_dict['commercial_id'].select(pl.len()).item()
+    
+    logger.info(f'Get {num_residential} residential and {num_commercial} commercial')
+
+    bldg_df = pl.concat(
+        [bldg_df_dict['commercial'], bldg_df_dict['residential']]
     )
     #METADATA
     metadata_res = (
@@ -111,8 +140,9 @@ if __name__ == '__main__':
         )
         .collect()
         .join(
-            bldg_df_list.unique(), 
-            on=['bldg_id', 'build_type']
+            bldg_df.unique(), 
+            on=['bldg_id', 'build_type'],
+            how='inner'
         )
     )
 
@@ -157,17 +187,18 @@ if __name__ == '__main__':
 
     #import and save label file
     logger.info('importing new data file')
-
-    data_hour_list: list[pl.DataFrame] = []
     
-    total_number_state = len(
-        glob(
-            'data_dump/*/state=*'
-        )
-    )
-    bar_file = tqdm(total = total_number_state+1)
-
     for type_building, type_dict in folder_map.items():
+        
+        data_hour_list: list[pl.DataFrame] = []
+    
+        total_number_state = len(
+            glob(
+                f'data_dump/{type_building}/state=*'
+            )
+        )
+        bar_file = tqdm(total = total_number_state+1)
+
         type_building_path: str = os.path.join(
             'data_dump', type_dict['path']
         )
@@ -179,87 +210,75 @@ if __name__ == '__main__':
             
             state_string: str = state_folder.split('=')[-1]
             
-            file_path_list: list[str] = os.listdir(
-                os.path.join(
-                    type_building_path,
-                    state_folder,
+            hour_result = (
+                pl.scan_parquet(
+                    os.path.join(
+                        type_building_path,
+                        state_folder,
+                        'data.parquet'
+                    )
                 )
+                .filter(
+                    pl.col('bldg_id').is_in(bldg_df_dict[type_building + '_id'])
+                )
+                .select(
+                    'timestamp', 'out.electricity.total.energy_consumption', 
+                    'in.state', 'bldg_id',
+                    pl.lit(type_building).cast(pl.Utf8).alias('build_type')
+                )
+                .with_columns(
+                    (
+                        (
+                            pl.col('bldg_id').cast(pl.Utf8) + pl.col('build_type')
+                        )
+                        .replace(mapper_id)
+                        .cast(pl.Int64)
+                        .alias('bldg_id')
+                    )
+                )
+                .select(
+                    ['timestamp', 'out.electricity.total.energy_consumption', 'in.state', 'bldg_id']
+                )
+                .collect()
             )
-            state_df_list: list[pl.LazyFrame] = []
-            
-            for file_path in file_path_list:
-                
-                hour_result = (
-                    pl.scan_parquet(
-                        os.path.join(
-                            type_building_path,
-                            state_folder,
-                            file_path
-                        )
-                    )
-                    .select(
-                        'timestamp', 'out.electricity.total.energy_consumption', 'bldg_id'
-                    )
-                    .group_by(
-                        'bldg_id', 
-                        (
-                            pl.col('timestamp').cast(pl.Datetime)
-                            .dt.offset_by('-15m').dt.truncate('1h')
-                        )
-                    )
-                    .agg(
-                        pl.col('out.electricity.total.energy_consumption').sum(),
-                        pl.lit(state_string).cast(pl.Utf8).alias('in.state'),
-                        pl.lit(type_building).cast(pl.Utf8).alias('build_type')
-                    )
-                    .with_columns(
-                        (
-                            (
-                                pl.col('bldg_id').cast(pl.Utf8) + pl.col('build_type')
-                            )
-                            .replace(mapper_id)
-                            .cast(pl.Int64)
-                            .alias('bldg_id')
-                        )
-                    )
-                    .select(
-                        ['timestamp', 'out.electricity.total.energy_consumption', 'in.state', 'bldg_id']
-                    )
-                )
-                state_df_list.append(hour_result)
                 
             state_df: pl.DataFrame = (
                 remap_category(
-                    data=pl.concat(state_df_list, how='vertical').collect(), 
+                    data=hour_result, 
                     mapper_mask_col=mapper_label['train_data']
                 )
-            ) 
+            )
             bar_file.update(1)
 
             data_hour_list.append(state_df)
+            
+            del state_df
+            _ = gc.collect()
                 
     
-    bar_file.close()
-    logger.info('Collecting dataset')
+        bar_file.close()
+        logger.info('Collecting dataset')
     
-    data_hour: pl.DataFrame = (
-        pl.concat(data_hour_list, how='vertical')
-    )
-    
-    for title_dataset_, dataset_ in [['hour', data_hour]]:
-        num_rows = dataset_.select(pl.len()).item()
-        num_cols = len(dataset_.collect_schema().names())
-        
-        logger.info(f'{title_dataset_} file has {num_rows} rows and {num_cols} cols')
-        
-    
-    logger.info(f'Starting saving hour dataset')
-    data_hour.write_parquet(
-        os.path.join(
-            config_dict['PATH_SILVER_PARQUET_DATA'],
-            'train_data_additional.parquet'
+        data_hour: pl.DataFrame = (
+            pl.concat(data_hour_list, how='vertical')
         )
-    )
+    
+        for title_dataset_, dataset_ in [['hour', data_hour]]:
+            num_rows = dataset_.select(pl.len()).item()
+            num_cols = len(dataset_.collect_schema().names())
+            
+            logger.info(f'{title_dataset_}-{type_building} file has {num_rows} rows and {num_cols} cols')
+        
+    
+        logger.info(f'Starting saving hour dataset')
+        data_hour.write_parquet(
+            os.path.join(
+                config_dict['PATH_SILVER_PARQUET_DATA'],
+                f'train_data_{type_building}_additional.parquet'
+            )
+        )
+        del data_hour_list, data_hour
+        _ = gc.collect()
     
     logger.info(f'Starting saving metadata dataset')
     metadata.write_parquet(
