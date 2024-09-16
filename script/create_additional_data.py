@@ -21,6 +21,8 @@ if __name__ == '__main__':
 
     config_dict = import_config()
     
+    N_SAMPLE: int = 10_000
+    
     #import mapper
     mapper_label = import_config(
         os.path.join(
@@ -42,6 +44,7 @@ if __name__ == '__main__':
                         pl.scan_parquet(path_file)
                         .select('bldg_id')
                         .unique()
+                        .head(N_SAMPLE)
                         .with_columns(pl.lit('residential').alias('build_type').cast(pl.Utf8))
                         .collect()
                     )
@@ -60,6 +63,7 @@ if __name__ == '__main__':
                         pl.scan_parquet(path_file)
                         .select('bldg_id')
                         .unique()
+                        .head(N_SAMPLE)
                         .with_columns(pl.lit('commercial').alias('build_type').cast(pl.Utf8))
                         .collect()
                     )
