@@ -101,7 +101,6 @@ class PreprocessPipeline(BasePipeline, PreprocessImport, PreprocessAddFeature, P
     def preprocess_train_by_batch(self) -> None:
                 
         self.preprocess_logger.info('Safe collecting dataset')
-        self.import_all()
         
         build_list = (
             self.base_data
