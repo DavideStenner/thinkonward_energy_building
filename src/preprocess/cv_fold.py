@@ -98,6 +98,9 @@ def iterative_stratification(
 
 class PreprocessFoldCreator(BaseCVFold, PreprocessInit):   
     def __create_binary_fold(self) -> pl.LazyFrame:
+        
+        self.preprocess_logger.info('Creating Binary Fold')
+        
         splitter_ = StratifiedKFold(self.n_folds, shuffle=True)
         data_binary = (
             self.label_data.select(self.build_id, self.target_col_binary)
@@ -123,6 +126,9 @@ class PreprocessFoldCreator(BaseCVFold, PreprocessInit):
         return target_data
 
     def __create_multilabel_fold(self, target_col_list: list[str], target: pl.LazyFrame) -> pl.LazyFrame:
+
+        self.preprocess_logger.info('Creating MultiLabel Fold')
+
         data_for_split = target.select(target_col_list).collect().to_dummies().to_numpy()        
         build_id = target.select(self.build_id).collect().to_numpy().reshape((-1))
         
