@@ -1183,7 +1183,6 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
 
     def merge_all(self) -> None:
         self.data = self.base_data.select(self.build_id, 'state').unique()
-        starting_num_colum = len(self.data.collect_schema().names())
         
         for lazy_feature_dataframe in self.lazy_feature_list:
             self.data = (
