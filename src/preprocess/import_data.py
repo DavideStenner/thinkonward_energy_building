@@ -35,11 +35,19 @@ class PreprocessImport(BaseImport, PreprocessInit):
                 self.add_additional_data()
                 
     def add_additional_data(self) -> None:
-        hour_data = (
+        hour_data_residential = (
             pl.scan_parquet(
                 os.path.join(
                     self.config_dict['PATH_SILVER_PARQUET_DATA'],
-                    'train_data_additional.parquet'
+                    'train_data_residential_additional.parquet'
+                )
+            ).select(self.base_data.collect_schema().names())
+        )
+        hour_data_commercial = (
+            pl.scan_parquet(
+                os.path.join(
+                    self.config_dict['PATH_SILVER_PARQUET_DATA'],
+                    'train_data_commercial_additional.parquet'
                 )
             ).select(self.base_data.collect_schema().names())
         )
@@ -56,7 +64,8 @@ class PreprocessImport(BaseImport, PreprocessInit):
         self.base_data = pl.concat(
             [
                 self.base_data, 
-                hour_data
+                hour_data_residential,
+                hour_data_commercial
             ]
         )
           
