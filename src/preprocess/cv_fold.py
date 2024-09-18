@@ -2,8 +2,9 @@ import numpy as np
 
 import polars as pl
 
+from tqdm import tqdm
 from typing import Dict
-from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import StratifiedKFold, KFold
 from src.base.preprocess.cv_fold import BaseCVFold
 from src.preprocess.initialize import PreprocessInit
 
@@ -30,6 +31,8 @@ def iterative_stratification(
     )
     
     fold_bucket: list[list[int]] = [[] for _ in range(n_folds)]
+    
+    bar_ = tqdm(total = target_data.shape[0])
     
     while (target_data.shape[0] > 0):
         #Find the label with the fewest (but at least one) 
@@ -84,7 +87,9 @@ def iterative_stratification(
         target_data = np.delete(
             target_data, element_to_drop, axis=0
         )
-    
+
+        bar_.update(1)
+        
     fold_mapper:Dict[int, int] = {}
     for fold_, bucket in enumerate(fold_bucket):
         fold_mapper.update(
