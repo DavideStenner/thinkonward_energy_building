@@ -164,9 +164,7 @@ class PreprocessPipeline(BasePipeline, PreprocessImport, PreprocessAddFeature, P
             data_list.append(
                 self.data
             )
-            self.base_data = None
-            self.data = None
-            self.lazy_feature_list = []
+            self.reset_all_feature_dataset()
             
         self.data = pl.concat(data_list)
 

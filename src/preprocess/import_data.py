@@ -33,7 +33,12 @@ class PreprocessImport(BaseImport, PreprocessInit):
             if self.additional_data:
                 self.preprocess_logger.info('Using additional dataset')
                 self.add_additional_data()
-                
+    
+    def reset_all_feature_dataset(self) -> None:
+        self.base_data = None
+        self.data = None
+        self.lazy_feature_list = []
+           
     def add_additional_data(self) -> None:
         hour_data_residential = (
             pl.scan_parquet(
