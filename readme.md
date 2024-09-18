@@ -21,8 +21,8 @@ python setup.py clean
 ```
 
 ```
+python concat_data.py
 command.ps1
 python create_additional_data.py
 python create_economics_dataset.py
-python concat_data.py
 ```
