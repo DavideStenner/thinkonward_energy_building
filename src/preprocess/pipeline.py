@@ -5,6 +5,7 @@ import json
 import numpy as np
 import polars as pl
 
+from tqdm import tqdm
 from typing import Any, Tuple, Dict
 
 from src.base.preprocess.pipeline import BasePipeline
@@ -99,6 +100,101 @@ class PreprocessPipeline(BasePipeline, PreprocessImport, PreprocessAddFeature, P
         )
         _ = gc.collect()
 
+    def preprocess_train_by_batch(self) -> None:
+                
+        self.preprocess_logger.info('Safe collecting dataset')
+        self.import_all()
+        
+        build_list = (
+            self.base_data
+            .select(self.build_id)
+            .unique()
+            .collect()
+            .to_numpy().reshape((-1))
+            .tolist()
+        )
+        data_list: list[pl.DataFrame] = []
+
+        self.economic_data = self.economic_data.collect()
+        num_id = len(build_list)
+        chunk_size = 1000
+        
+        for i in tqdm(range(0, num_id, chunk_size)):
+            selected_build_id = build_list[i:min(num_id, i+chunk_size)]
+            
+            self.base_data: pl.LazyFrame = pl.scan_parquet(
+                os.path.join(
+                    self.config_dict['PATH_SILVER_PARQUET_DATA'],
+                    self.config_dict[f'TRAIN_FEATURE_HOUR_FILE_NAME']
+                )
+            ).filter(pl.col(self.build_id).is_in(selected_build_id))
+            self.label_data: pl.LazyFrame = pl.scan_parquet(
+                os.path.join(
+                    self.config_dict['PATH_SILVER_PARQUET_DATA'],
+                    self.config_dict['TRAIN_LABEL_FILE_NAME']
+                )
+            ).filter(pl.col(self.build_id).is_in(selected_build_id))
+            
+            hour_data_residential = (
+                pl.scan_parquet(
+                    os.path.join(
+                        self.config_dict['PATH_SILVER_PARQUET_DATA'],
+                        'train_data_residential_additional.parquet'
+                    )
+                )
+                .filter(pl.col(self.build_id).is_in(selected_build_id))
+                .select(self.base_data.collect_schema().names())
+            )
+            hour_data_commercial = (
+                pl.scan_parquet(
+                    os.path.join(
+                        self.config_dict['PATH_SILVER_PARQUET_DATA'],
+                        'train_data_commercial_additional.parquet'
+                    )
+                )
+                .filter(pl.col(self.build_id).is_in(selected_build_id))
+                .select(self.base_data.collect_schema().names())
+            )
+            label_data = (
+                pl.scan_parquet(
+                    os.path.join(
+                        self.config_dict['PATH_SILVER_PARQUET_DATA'],
+                        'train_label_additional.parquet'
+                    )
+                )
+                .filter(pl.col(self.build_id).is_in(selected_build_id))
+                .select(self.label_data.collect_schema().names())
+            )
+            
+            self.base_data = pl.concat(
+                [
+                    self.base_data.collect(), 
+                    hour_data_residential.collect(),
+                    hour_data_commercial.collect()
+                ]
+            )
+            
+            self.label_data = pl.concat(
+                [
+                    self.label_data.collect(), 
+                    label_data.collect()
+                ]
+            )
+            self.downcast_data()
+            
+            self.create_feature()
+            self.merge_all()
+
+            data_list.append(
+                self.data
+            )
+            self.base_data = None
+            self.label_data = None
+            self.data = None
+            self.lazy_feature_list = []
+            
+        self.data = pl.concat(data_list)
+        
     def preprocess_train(self) -> None:
         starting_num_colum = len(self._get_col_name(self.data))
         
@@ -148,4 +244,5 @@ class PreprocessPipeline(BasePipeline, PreprocessImport, PreprocessAddFeature, P
             self.preprocess_inference()
 
         else:
-            self.preprocess_train()
+            # self.preprocess_train()
+            self.preprocess_train_by_batch()
