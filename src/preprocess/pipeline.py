@@ -115,7 +115,7 @@ class PreprocessPipeline(BasePipeline, PreprocessImport, PreprocessAddFeature, P
 
         self.economic_data = self.economic_data.collect()
         num_id = len(build_list)
-        chunk_size = 1000
+        chunk_size = 10_000
         
         base_data = pl.scan_parquet(
             os.path.join(
