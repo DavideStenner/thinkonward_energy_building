@@ -130,6 +130,39 @@ class PreprocessFoldCreator(BaseCVFold, PreprocessInit):
         )
         return target_data
 
+    def __create_random_fold(self, target_col_list: list[str], target: pl.LazyFrame) -> pl.LazyFrame:
+        
+        self.preprocess_logger.info('Creating Shuffled Fold')
+        
+        splitter_ = KFold(self.n_folds, shuffle=True)
+        
+        target_selected_ = (
+            target.select(
+                [self.build_id] + target_col_list 
+            )
+        )
+        data_binary = (
+            target_selected_
+            .collect()
+            .to_pandas()
+        )
+
+        fold_iterator = enumerate(splitter_.split(data_binary))
+        fold_mapper: Dict[int, int] = {}
+        
+        for fold_, (_, test_index) in fold_iterator:
+            fold_mapper.update(
+                {
+                    build_id: fold_
+                    for build_id in data_binary.loc[test_index, self.build_id].tolist()
+                }
+            )
+        target_data = self.__create_fold_from_mapper(
+            target_selected_, 
+            fold_mapper
+        )
+        return target_data
+
     def __create_multilabel_fold(self, target_col_list: list[str], target: pl.LazyFrame) -> pl.LazyFrame:
 
         self.preprocess_logger.info('Creating MultiLabel Fold')
@@ -189,7 +222,7 @@ class PreprocessFoldCreator(BaseCVFold, PreprocessInit):
         self.dict_target: Dict[str, pl.LazyFrame] = {
             'train_binary': self.__create_binary_fold(),
             'train_commercial': (
-                self.__create_multilabel_fold(
+                self.__create_random_fold(
                     target_col_list=self.target_col_com_list,
                     target=(
                         self.label_data.clone()
@@ -198,7 +231,7 @@ class PreprocessFoldCreator(BaseCVFold, PreprocessInit):
                 )
             ),
             'train_residential': (
-                self.__create_multilabel_fold(
+                self.__create_random_fold(
                     target_col_list=self.target_col_res_list,
                     target=(
                         self.label_data.clone()
