@@ -126,12 +126,6 @@ class PreprocessPipeline(BasePipeline, PreprocessImport, PreprocessAddFeature, P
                     self.config_dict[f'TRAIN_FEATURE_HOUR_FILE_NAME']
                 )
             ).filter(pl.col(self.build_id).is_in(selected_build_id))
-            self.label_data: pl.LazyFrame = pl.scan_parquet(
-                os.path.join(
-                    self.config_dict['PATH_SILVER_PARQUET_DATA'],
-                    self.config_dict['TRAIN_LABEL_FILE_NAME']
-                )
-            ).filter(pl.col(self.build_id).is_in(selected_build_id))
             
             hour_data_residential = (
                 pl.scan_parquet(
@@ -153,16 +147,6 @@ class PreprocessPipeline(BasePipeline, PreprocessImport, PreprocessAddFeature, P
                 .filter(pl.col(self.build_id).is_in(selected_build_id))
                 .select(self.base_data.collect_schema().names())
             )
-            label_data = (
-                pl.scan_parquet(
-                    os.path.join(
-                        self.config_dict['PATH_SILVER_PARQUET_DATA'],
-                        'train_label_additional.parquet'
-                    )
-                )
-                .filter(pl.col(self.build_id).is_in(selected_build_id))
-                .select(self.label_data.collect_schema().names())
-            )
             
             self.base_data = pl.concat(
                 [
@@ -181,12 +165,23 @@ class PreprocessPipeline(BasePipeline, PreprocessImport, PreprocessAddFeature, P
                 self.data
             )
             self.base_data = None
-            self.label_data = None
             self.data = None
             self.lazy_feature_list = []
             
         self.data = pl.concat(data_list)
+
+        self.preprocess_logger.info(
+            f'Collected dataset with {len(self._get_col_name(self.data))} columns and {self._get_number_rows(self.data)} rows'
+        )
+
+        _ = gc.collect()
         
+        self.preprocess_logger.info('Creating fold_info column ...')
+        self.create_fold()
+        
+        self.preprocess_logger.info('Saving multiple training dataset')
+        self.save_data()
+
     def preprocess_train(self) -> None:
         starting_num_colum = len(self._get_col_name(self.data))
         
