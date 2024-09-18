@@ -1,4 +1,5 @@
 import os
+import gc
 import polars as pl
 
 from src.base.preprocess.import_data import BaseImport
@@ -38,6 +39,8 @@ class PreprocessImport(BaseImport, PreprocessInit):
         self.base_data = None
         self.data = None
         self.lazy_feature_list = []
+        
+        _ = gc.collect()
            
     def add_additional_data(self) -> None:
         hour_data_residential = (
