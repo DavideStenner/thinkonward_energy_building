@@ -24,10 +24,9 @@ class PreprocessPipeline(BasePipeline, PreprocessImport, PreprocessAddFeature, P
         )
 
     def save_data(self) -> None:       
-        self.preprocess_logger.info('saving every processed dataset + target')
+        self.preprocess_logger.info('saving every processed dataset')
         mapper_dummy_target = {}
         
-        #for each file join back to dataset and also save mapping of dummy to original feature
         for name_file, lazy_frame in self.dict_target.items():
 
             dataset_label = lazy_frame.collect()
@@ -58,7 +57,6 @@ class PreprocessPipeline(BasePipeline, PreprocessImport, PreprocessAddFeature, P
             
     def collect_feature(self) -> None:
         self.base_data: pl.DataFrame = self.base_data.collect()
-        self.minute_data: pl.DataFrame = self.minute_data.collect()
         
     def collect_all(self) -> None:
         self.collect_feature()
