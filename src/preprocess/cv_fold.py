@@ -102,18 +102,18 @@ def iterative_stratification(
     return fold_mapper
 
 class PreprocessFoldCreator(BaseCVFold, PreprocessInit):   
-    def __create_binary_fold(self) -> pl.LazyFrame:
+    def __create_binary_fold(self, selected_target: str, filtered_label_data: pl.LazyFrame) -> pl.LazyFrame:
         
-        self.preprocess_logger.info('Creating Binary Fold')
+        self.preprocess_logger.info(f'Creating {selected_target} Fold')
         
         splitter_ = StratifiedKFold(self.n_folds, shuffle=True)
         data_binary = (
-            self.label_data.select(self.build_id, self.target_col_binary)
+            filtered_label_data.select(self.build_id, selected_target)
             .collect()
             .to_pandas()
         )
 
-        fold_iterator = enumerate(splitter_.split(data_binary, data_binary[self.target_col_binary]))
+        fold_iterator = enumerate(splitter_.split(data_binary, data_binary[selected_target]))
         fold_mapper: Dict[int, int] = {}
         
         for fold_, (_, test_index) in fold_iterator:
@@ -124,8 +124,8 @@ class PreprocessFoldCreator(BaseCVFold, PreprocessInit):
                 }
             )
         target_data = self.__create_fold_from_mapper(
-            self.label_data.clone().select(
-                [self.build_id, self.target_col_binary] 
+            filtered_label_data.select(
+                [self.build_id, selected_target] 
             ), fold_mapper
         )
         return target_data
@@ -219,25 +219,27 @@ class PreprocessFoldCreator(BaseCVFold, PreprocessInit):
     
     def create_fold(self) -> None:
         
-        self.dict_target: Dict[str, pl.LazyFrame] = {
-            'train_binary': self.__create_binary_fold(),
-            'train_commercial': (
-                self.__create_random_fold(
-                    target_col_list=self.target_col_com_list,
-                    target=(
-                        self.label_data.clone()
-                        .filter(pl.col(self.target_col_binary)==self.commercial_index)
-                    )
-                )
-            ),
-            'train_residential': (
-                self.__create_random_fold(
-                    target_col_list=self.target_col_res_list,
-                    target=(
-                        self.label_data.clone()
-                        .filter(pl.col(self.target_col_binary)!=self.commercial_index)
-                    )
-                )
-            )
-        }        
+        self.dict_target = {}
         
+        for selected_target in self.all_target_list:
+            if selected_target == self.target_col_binary:
+                filtered_label_data = self.label_data.clone()
+            elif selected_target in self.target_col_com_list:
+                filtered_label_data = (
+                    self.label_data.clone()
+                    .filter(pl.col(self.target_col_binary)==self.commercial_index)
+                    .filter(pl.col(selected_target).is_null().not_())
+                )
+            elif selected_target in self.target_col_res_list:
+                filtered_label_data = (
+                    self.label_data.clone()
+                    .filter(pl.col(self.target_col_binary)!=self.commercial_index)
+                    .filter(pl.col(selected_target).is_null().not_())
+                )
+            else:
+                raise ValueError
+            
+            self.dict_target[f'train_{selected_target}'] = self.__create_binary_fold(
+                selected_target=selected_target, 
+                filtered_label_data=filtered_label_data
+            )
