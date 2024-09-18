@@ -76,7 +76,7 @@ class PreprocessImport(BaseImport, PreprocessInit):
             ]
         )
 
-    def downcast_data(self):
+    def downcast_feature(self) -> None:
         self.base_data = (
             self.base_data.with_columns(
                 pl.col('timestamp').cast(pl.Datetime),
@@ -91,18 +91,23 @@ class PreprocessImport(BaseImport, PreprocessInit):
                 }
             )
         )
-
+    def downcast_target(self) -> None:
+        self.label_data = self.label_data.with_columns(
+            [
+                pl.col(self.build_id).cast(pl.UInt32)
+            ] +
+            [
+                pl.col(col).cast(pl.UInt8)
+                for col in self.all_target_list
+            ]
+        )
+        
+    def downcast_data(self) -> None:
+        self.downcast_feature()
+        
         if not self.inference:
-            self.label_data = self.label_data.with_columns(
-                [
-                    pl.col(self.build_id).cast(pl.UInt32)
-                ] +
-                [
-                    pl.col(col).cast(pl.UInt8)
-                    for col in self.all_target_list
-                ]
-            )
-            
+            self.downcast_target()
+                
     def import_all(self) -> None:
         self.scan_all_dataset()
         self.downcast_data()

@@ -174,13 +174,7 @@ class PreprocessPipeline(BasePipeline, PreprocessImport, PreprocessAddFeature, P
                 ]
             )
             
-            self.label_data = pl.concat(
-                [
-                    self.label_data.collect(), 
-                    label_data.collect()
-                ]
-            )
-            self.downcast_data()
+            self.downcast_feature()
             
             self.create_feature()
             self.merge_all()
