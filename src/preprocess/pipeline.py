@@ -102,8 +102,9 @@ class PreprocessPipeline(BasePipeline, PreprocessImport, PreprocessAddFeature, P
                 
         self.preprocess_logger.info('Safe collecting dataset')
         
+        self.preprocess_logger.info('Getting info of all build id')
         build_list = (
-            self.base_data
+            self.label_data
             .select(self.build_id)
             .unique()
             .collect()
@@ -116,35 +117,46 @@ class PreprocessPipeline(BasePipeline, PreprocessImport, PreprocessAddFeature, P
         num_id = len(build_list)
         chunk_size = 1000
         
-        for i in tqdm(range(0, num_id, chunk_size)):
-            selected_build_id = build_list[i:min(num_id, i+chunk_size)]
-            
-            self.base_data: pl.LazyFrame = pl.scan_parquet(
-                os.path.join(
-                    self.config_dict['PATH_SILVER_PARQUET_DATA'],
-                    self.config_dict[f'TRAIN_FEATURE_HOUR_FILE_NAME']
-                )
-            ).filter(pl.col(self.build_id).is_in(selected_build_id))
-            
-            hour_data_residential = (
-                pl.scan_parquet(
+        base_data = pl.scan_parquet(
+            os.path.join(
+                self.config_dict['PATH_SILVER_PARQUET_DATA'],
+                self.config_dict[f'TRAIN_FEATURE_HOUR_FILE_NAME']
+            )
+        )
+        hour_residential = (
+            pl.scan_parquet(
                     os.path.join(
                         self.config_dict['PATH_SILVER_PARQUET_DATA'],
                         'train_data_residential_additional.parquet'
                     )
                 )
+            .select(base_data.collect_schema().names())
+        )
+        hour_commercial = (
+            pl.scan_parquet(
+                os.path.join(
+                    self.config_dict['PATH_SILVER_PARQUET_DATA'],
+                    'train_data_commercial_additional.parquet'
+                )
+            )
+            .select(base_data.collect_schema().names())
+        )
+        self.preprocess_logger.info(f'Preprocessing {num_id} building')
+
+        for i in tqdm(range(0, num_id, chunk_size)):
+            selected_build_id = build_list[i:min(num_id, i+chunk_size)]
+            
+            self.base_data: pl.LazyFrame = base_data.clone().filter(pl.col(self.build_id).is_in(selected_build_id))
+            
+            hour_data_residential = (
+                hour_residential
+                .clone()
                 .filter(pl.col(self.build_id).is_in(selected_build_id))
-                .select(self.base_data.collect_schema().names())
             )
             hour_data_commercial = (
-                pl.scan_parquet(
-                    os.path.join(
-                        self.config_dict['PATH_SILVER_PARQUET_DATA'],
-                        'train_data_commercial_additional.parquet'
-                    )
-                )
+                hour_commercial
+                .clone()
                 .filter(pl.col(self.build_id).is_in(selected_build_id))
-                .select(self.base_data.collect_schema().names())
             )
             
             self.base_data = pl.concat(
