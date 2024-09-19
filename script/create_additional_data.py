@@ -44,6 +44,7 @@ if __name__ == '__main__':
                         pl.scan_parquet(path_file)
                         .select('bldg_id')
                         .unique()
+                        .sort('bldg_id')
                         .head(N_SAMPLE)
                         .with_columns(pl.lit('residential').alias('build_type').cast(pl.Utf8))
                         .collect()
@@ -63,6 +64,7 @@ if __name__ == '__main__':
                         pl.scan_parquet(path_file)
                         .select('bldg_id')
                         .unique()
+                        .sort('bldg_id')
                         .head(N_SAMPLE)
                         .with_columns(pl.lit('commercial').alias('build_type').cast(pl.Utf8))
                         .collect()
@@ -156,9 +158,10 @@ if __name__ == '__main__':
     id_build_list: list[str] = (
         metadata
         .select(
-            pl.col('bldg_id').cast(pl.Utf8) + pl.col('build_type')
+            (pl.col('build_type') + pl.col('bldg_id').cast(pl.Utf8)).alias('order_')
         )
         .unique()
+        .sort('order_')
         .to_numpy()
         .reshape((-1))
         .tolist()
@@ -174,7 +177,7 @@ if __name__ == '__main__':
         .with_columns(
             (
                 (
-                    pl.col('bldg_id').cast(pl.Utf8) + pl.col('build_type')
+                    pl.col('build_type') + pl.col('bldg_id').cast(pl.Utf8)
                 )
                 .replace(mapper_id)
                 .cast(pl.Int64)
@@ -187,6 +190,14 @@ if __name__ == '__main__':
     logger.info('Remapping metadata')
     metadata = remap_category(
         data=metadata, mapper_mask_col=mapper_label['train_label']
+    )
+
+    logger.info(f'Starting saving metadata dataset')
+    metadata.write_parquet(
+        os.path.join(
+            config_dict['PATH_SILVER_PARQUET_DATA'],
+            'train_label_additional.parquet'
+        )
     )
 
     #import and save label file
@@ -233,7 +244,7 @@ if __name__ == '__main__':
                 .with_columns(
                     (
                         (
-                            pl.col('bldg_id').cast(pl.Utf8) + pl.col('build_type')
+                            pl.col('build_type') + pl.col('bldg_id').cast(pl.Utf8)
                         )
                         .replace(mapper_id)
                         .cast(pl.Int64)
@@ -284,10 +295,4 @@ if __name__ == '__main__':
         del data_hour_list, data_hour
         _ = gc.collect()
     
-    logger.info(f'Starting saving metadata dataset')
-    metadata.write_parquet(
-        os.path.join(
-            config_dict['PATH_SILVER_PARQUET_DATA'],
-            'train_label_additional.parquet'
-        )
-    )
+    logger.info(f'Done')
