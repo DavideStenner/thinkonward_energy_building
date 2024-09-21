@@ -16,7 +16,7 @@ class LgbmTrainer(ModelTrain, LgbmInit):
         data = pl.scan_parquet(
             os.path.join(
                 self.config_dict['PATH_GOLD_PARQUET_DATA'],
-                'train_binary_label.parquet'
+                'train_building_stock_type_label.parquet'
             )
         )
         
