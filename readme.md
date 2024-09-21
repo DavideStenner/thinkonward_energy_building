@@ -20,6 +20,7 @@ python -m pip install -e .
 python setup.py clean
 ```
 
+Download data for each state from https://www.census.gov/quickfacts/fact/table/{STATE}/PST045223
 ```
 python concat_data.py
 command.ps1
