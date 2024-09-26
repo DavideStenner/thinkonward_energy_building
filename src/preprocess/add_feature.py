@@ -81,15 +81,15 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
                     )
                     for month in self.month_list
                 ] +
-                [
-                    (
-                        pl.col('daily_consumption')
-                        .filter(pl.col('weeknum')==week)
-                        .mean()
-                        .alias(f'average_daily_consumption_week_{week}')
-                    )
-                    for week in self.weeknum_list
-                ] +
+                # [
+                #     (
+                #         pl.col('daily_consumption')
+                #         .filter(pl.col('weeknum')==week)
+                #         .mean()
+                #         .alias(f'average_daily_consumption_week_{week}')
+                #     )
+                #     for week in self.weeknum_list
+                # ] +
                 #TOTAL CONSUMPTION
                 [
                     (
@@ -195,18 +195,18 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
                     )
                     for month, tou in product(self.month_list, self.tou_unique)
                 ] +
-                [
-                    (
-                        pl.col('energy_consumption')
-                        .filter(
-                            (pl.col('weeknum')==week) &
-                            (pl.col('tou')==tou)
-                        )
-                        .mean()
-                        .alias(f'average_hour_consumption_week_{week}_tou_{tou}')
-                    )
-                    for week, tou in product(self.weeknum_list, self.tou_unique)
-                ] +
+                # [
+                #     (
+                #         pl.col('energy_consumption')
+                #         .filter(
+                #             (pl.col('weeknum')==week) &
+                #             (pl.col('tou')==tou)
+                #         )
+                #         .mean()
+                #         .alias(f'average_hour_consumption_week_{week}_tou_{tou}')
+                #     )
+                #     for week, tou in product(self.weeknum_list, self.tou_unique)
+                # ] +
                 #SLICE DAY AGGREGATION
                 [
                     (
@@ -232,30 +232,30 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
                     )
                     for month, is_weekend in product(self.month_list, [0, 1])
                 ] +
-                [
-                    (
-                        pl.col('energy_consumption')
-                        .filter(
-                            (pl.col('weeknum')==week) &
-                            (pl.col('is_weekend')==is_weekend)
-                        )
-                        .mean()
-                        .alias(f'average_hour_consumption_week_{week}_is_weekend_{is_weekend}')
-                    )
-                    for week, is_weekend in product(self.weeknum_list, [0, 1])
-                ] +
+                # [
+                #     (
+                #         pl.col('energy_consumption')
+                #         .filter(
+                #             (pl.col('weeknum')==week) &
+                #             (pl.col('is_weekend')==is_weekend)
+                #         )
+                #         .mean()
+                #         .alias(f'average_hour_consumption_week_{week}_is_weekend_{is_weekend}')
+                #     )
+                #     for week, is_weekend in product(self.weeknum_list, [0, 1])
+                # ] +
                 #PIVOTED INFORMATION
                 [
                     (
                         pl.col('energy_consumption')
                         .filter(
-                            (pl.col('month')==month) &
+                            (pl.col('season')==season) &
                             (pl.col('hour')==hour)
                         )
                         .mean()
-                        .alias(f'average_consumption_hour_{hour}_over_month_{month}')
+                        .alias(f'average_consumption_hour_{hour}_over_season_{season}')
                     )
-                    for hour, month in product(self.hour_list, self.month_list)
+                    for hour, season in product(self.hour_list, self.season_list)
                 ] +
                 #HOUR WEEKNUM AGGREGATION
                 [
@@ -1171,14 +1171,14 @@ class PreprocessAddFeature(BaseFeature, PreprocessInit):
         self.lazy_feature_list += [
             self.__create_hour_aggregation(),
             self.__create_range_work_hour_features(),
-            self.__create_increment_decrement_hour_features(),
-            self.__create_increment_decrement_hour_by_day_features()
+            # self.__create_increment_decrement_hour_features(),
+            # self.__create_increment_decrement_hour_by_day_features()
         ]
         #list of query
         self.lazy_feature_list += (
             self.__create_hour_profile_consumption() +
-            self.__create_weekday_profile_consumption() +
-            self.__create_past_future_difference_hour()
+            self.__create_weekday_profile_consumption()
+            # self.__create_past_future_difference_hour()
         )
 
     def merge_all(self) -> None:
