@@ -26,4 +26,16 @@ python concat_data.py
 command.ps1
 python create_additional_data.py
 python create_economics_dataset.py
+python preprocess.py --add
+```
+
+# Training phase
+
+```
+python train.py
+```
+
+# Inference
+```
+python inference.py
 ```
