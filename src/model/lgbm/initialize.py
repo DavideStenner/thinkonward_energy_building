@@ -100,10 +100,17 @@ class LgbmInit(ModelInit):
         self.get_target_col_list()
         
     def get_target_col_list(self) -> None:
+        def get_category(x: str) -> str:
+            if x[-3:].lower() == 'res':
+                return 'residential'
+            elif x[-3:].lower() == 'com':
+                return 'commercial'
+            else:
+                return 'binary'
             
         self.target_dict: Dict[str, list[str]] = self.config_dict['TARGET_DICT']
         self.target_class_dict: Dict[str, list[str]] = {
-            col_name: col_name
+            col_name: get_category(col_name)
             for col_name in self.model_used
         }
     def initialize_logger(self) -> None:

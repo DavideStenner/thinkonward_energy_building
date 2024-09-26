@@ -57,7 +57,7 @@ class LgbmTrainer(ModelTrain, LgbmInit):
         else:
             params_lgb['objective'] = 'softmax'
             params_lgb['num_class'] = (
-                self.access_fold(fold_=fold_, current_model=self.target_class_dict[target])
+                self.access_fold(fold_=fold_, current_model=target)
                 .filter(pl.col(target).is_not_null())
                 .select(pl.col(target).n_unique())
                 .collect()
@@ -122,7 +122,7 @@ class LgbmTrainer(ModelTrain, LgbmInit):
         _ = gc.collect()
 
     def get_dataset(self, fold_: int, target: str) -> Tuple[lgb.Dataset]:
-        fold_data = self.access_fold(fold_=fold_, current_model=self.target_class_dict[target])
+        fold_data = self.access_fold(fold_=fold_, current_model=target)
                     
         train_filtered = fold_data.filter(
             (pl.col('current_fold') == 't')
