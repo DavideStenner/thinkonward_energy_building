@@ -21,7 +21,7 @@ if __name__ == '__main__':
 
     config_dict = import_config()
     
-    N_SAMPLE: int = 10_000
+    N_SAMPLE: int = 5_000
     
     #import mapper
     mapper_label = import_config(
