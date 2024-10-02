@@ -21,7 +21,7 @@ if __name__ == '__main__':
 
     config_dict = import_config()
     
-    N_SAMPLE: int = 5_000
+    N_SAMPLE: int = 10_000
     
     #import mapper
     mapper_label = import_config(
@@ -263,36 +263,20 @@ if __name__ == '__main__':
                     mapper_mask_col=mapper_label['train_data']
                 )
             )
-            bar_file.update(1)
 
-            data_hour_list.append(state_df)
-            
+            state_df.write_parquet(
+                os.path.join(
+                    config_dict['PATH_SILVER_PARQUET_DATA'],
+                    f'train_data_{type_building}_additional_{state_string}.parquet'
+                )
+            )
             del state_df
             _ = gc.collect()
-                
+            bar_file.update(1)
+            
     
         bar_file.close()
-        logger.info('Collecting dataset')
-    
-        data_hour: pl.DataFrame = (
-            pl.concat(data_hour_list, how='vertical')
-        )
-    
-        for title_dataset_, dataset_ in [['hour', data_hour]]:
-            num_rows = dataset_.select(pl.len()).item()
-            num_cols = len(dataset_.collect_schema().names())
-            
-            logger.info(f'{title_dataset_}-{type_building} file has {num_rows} rows and {num_cols} cols')
         
-    
-        logger.info(f'Starting saving hour dataset')
-        data_hour.write_parquet(
-            os.path.join(
-                config_dict['PATH_SILVER_PARQUET_DATA'],
-                f'train_data_{type_building}_additional.parquet'
-            )
-        )
-        del data_hour_list, data_hour
         _ = gc.collect()
     
     logger.info(f'Done')
