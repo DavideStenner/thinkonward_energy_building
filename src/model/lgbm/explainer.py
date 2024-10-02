@@ -121,10 +121,7 @@ class LgbmExplainer(LgbmInit):
             type_model=type_model
         )
 
-        progress_dict = {
-            'time': range(self.params_lgb['n_round']),
-        }
-
+        progress_dict = {}
         list_metric = progress_list[0]['valid'].keys()
         
         for metric_ in list_metric:
@@ -136,6 +133,7 @@ class LgbmExplainer(LgbmInit):
             )
 
         progress_df = pd.DataFrame(progress_dict)
+        progress_df['time'] = range(progress_df.shape[0])
         
         for metric_ in list_metric:
             
