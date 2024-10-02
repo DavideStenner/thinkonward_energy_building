@@ -1,6 +1,7 @@
 import os
 import gc
 import json
+import glob
 
 import numpy as np
 import polars as pl
@@ -123,48 +124,64 @@ class PreprocessPipeline(BasePipeline, PreprocessImport, PreprocessAddFeature, P
                 self.config_dict[f'TRAIN_FEATURE_HOUR_FILE_NAME']
             )
         )
-        hour_residential = (
-            pl.scan_parquet(
-                    os.path.join(
-                        self.config_dict['PATH_SILVER_PARQUET_DATA'],
-                        'train_data_residential_additional.parquet'
-                    )
-                )
-            .select(base_data.collect_schema().names())
-        )
-        hour_commercial = (
-            pl.scan_parquet(
+        hour_residential = [
+            (
+                pl.scan_parquet(file_name)
+                .select(base_data.collect_schema().names())
+            )
+            for file_name in glob.glob(
                 os.path.join(
                     self.config_dict['PATH_SILVER_PARQUET_DATA'],
-                    'train_data_commercial_additional.parquet'
+                    f'train_data_residential_additional_*.parquet'
                 )
             )
-            .select(base_data.collect_schema().names())
-        )
+        ]
+        hour_commercial = [
+            (
+                pl.scan_parquet(file_name)
+                .select(base_data.collect_schema().names())
+            )
+            for file_name in glob.glob(
+                os.path.join(
+                    self.config_dict['PATH_SILVER_PARQUET_DATA'],
+                    f'train_data_commercial_additional_*.parquet'
+                )
+            )
+        ]
+
         self.preprocess_logger.info(f'Preprocessing {num_id} building')
 
         for i in tqdm(range(0, num_id, chunk_size)):
             selected_build_id = build_list[i:min(num_id, i+chunk_size)]
             
-            self.base_data: pl.LazyFrame = base_data.clone().filter(pl.col(self.build_id).is_in(selected_build_id))
+            self.base_data: pl.LazyFrame = (
+                base_data.clone().filter(pl.col(self.build_id).is_in(selected_build_id))
+                .collect()
+            )
             
-            hour_data_residential = (
-                hour_residential
-                .clone()
-                .filter(pl.col(self.build_id).is_in(selected_build_id))
-            )
-            hour_data_commercial = (
-                hour_commercial
-                .clone()
-                .filter(pl.col(self.build_id).is_in(selected_build_id))
-            )
+            hour_data_residential = [
+                (
+                    single_state
+                    .clone()
+                    .filter(pl.col(self.build_id).is_in(selected_build_id))
+                    .collect()
+                )
+                for single_state in hour_residential
+            ]
+            hour_data_commercial = [
+                (
+                    single_state
+                    .clone()
+                    .filter(pl.col(self.build_id).is_in(selected_build_id))
+                    .collect()
+                )
+                for single_state in hour_commercial
+            ]
             
             self.base_data = pl.concat(
-                [
-                    self.base_data.collect(), 
-                    hour_data_residential.collect(),
-                    hour_data_commercial.collect()
-                ]
+                [self.base_data] + 
+                hour_data_residential +
+                hour_data_commercial
             )
             
             self.downcast_feature()
