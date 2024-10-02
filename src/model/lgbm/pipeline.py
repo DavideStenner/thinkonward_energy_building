@@ -26,8 +26,8 @@ class LgbmPipeline(ModelPipeline, LgbmTrainer, LgbmExplainer, LgbmInference):
         self.inference = True
         
     def run_train(self) -> None:
+        self.save_params()
         self.train()
-        self.save_model()
         
     def explain_model(self) -> None:
         self.evaluate_score()
@@ -39,4 +39,4 @@ class LgbmPipeline(ModelPipeline, LgbmTrainer, LgbmExplainer, LgbmInference):
         self.create_experiment_structure()
         self.initialize_logger()
         self.run_train()
-        self.explain_model()
+        #self.explain_model()

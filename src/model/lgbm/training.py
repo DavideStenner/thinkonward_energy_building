@@ -167,6 +167,22 @@ class LgbmTrainer(ModelTrain, LgbmInit):
         
                 self.train_target(fold_=fold_, target=target_)
             
+            self.save_single_model(target=target_)
+            
+    def save_single_model(self, target: str)->None:            
+        self.save_pickle_model_list(
+            getattr(
+                self, f'model_{target}_list'
+            ), 
+            target,
+        )
+        self.save_progress_list(
+            getattr(
+                self, f'progress_{target}_list'
+            ), 
+            target
+        )
+        
     def save_model(self)->None:
         for type_model in self.model_used:
             
