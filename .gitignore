@@ -13,4 +13,5 @@ config/params_*.json
 testing_data/*
 eda/*
 log/*
+!data/other_dataset/census/
 !.gitkeep
