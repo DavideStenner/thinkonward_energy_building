@@ -1,4 +1,24 @@
-# Set up data
+# Solution Information
+## Challenge: Building Instinct: Where power meets predictions
+
+### Python Version: 3.12.4
+
+### Project Structure 
+
+* ```~/solution_pipeline.ipynb``` - main notebook file, pipeline entrypoint;
+* ```~/src``` - source code directory with helping modules for the pipeline;
+* ```~/data``` - placeholder directory for the pipeline data;
+* ```~/config``` - directory with pipeline configuration files;
+* ```~/experiment``` - directory with saved model;
+* ```~requirements.txt``` - list of required dependencies;
+
+### Solution Reproduction Note
+to  reproduce the solution, follow the instructions in ```solution_pipeline.ipynb```
+
+
+# Dev Info
+
+## Set up data
 
 Then unzip inside folder original_data
 
@@ -29,13 +49,13 @@ python create_economics_dataset.py
 python preprocess.py --add
 ```
 
-# Training phase
+## Training phase
 
 ```
 python train.py
 ```
 
-# Inference
+## Inference
 ```
 python inference.py
 ```
