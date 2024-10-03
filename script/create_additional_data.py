@@ -6,6 +6,7 @@ sys.path.append(os.getcwd())
 if __name__ == '__main__':
     """Create additional data with scraped home"""
     import gc
+    import argparse
     import warnings
     import polars as pl
 
@@ -20,8 +21,13 @@ if __name__ == '__main__':
     logger = get_logger(file_name='add_new_data.log')
 
     config_dict = import_config()
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--sample', default=10_000)
     
-    N_SAMPLE: int = 10_000
+    args = parser.parse_args()
+
+    N_SAMPLE: int = args.sample
     
     #import mapper
     mapper_label = import_config(
