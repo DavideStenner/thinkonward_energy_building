@@ -1,5 +1,6 @@
 import os
 import sys
+import glob
 sys.path.append(os.getcwd())
 
 if __name__ == '__main__':
@@ -56,12 +57,12 @@ if __name__ == '__main__':
             path_folder
         )
         data_hour_list: list[pl.DataFrame] = []
-        
-        for file_name in tqdm(os.listdir(dataset_chunk_folder)):
+        file_list = glob.glob(
+            os.path.join(dataset_chunk_folder, '*.parquet')
+        )
+        for file_path in tqdm(file_list):
             minute_result = (
-                pl.scan_parquet(
-                    os.path.join(dataset_chunk_folder, file_name),
-                )
+                pl.scan_parquet(file_path)
                 .with_columns(
                     pl.col('timestamp').cast(pl.Datetime),
                     pl.col('out.electricity.total.energy_consumption').cast(pl.Float64),
