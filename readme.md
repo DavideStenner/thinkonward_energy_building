@@ -15,6 +15,10 @@
 ### Solution Reproduction Note
 to  reproduce the solution, follow the instructions in ```solution_pipeline.ipynb```
 
+To retrain all ensure to put every train parquet files under data\original_dataset\building-instinct-train-data and 
+data\original_dataset\building-instinct-train-label.
+
+To predict only the houldout dataset put every test parquet files under data\original_dataset\building-instinct-test-data.
 
 # Dev Info
 
