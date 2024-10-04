@@ -24,6 +24,8 @@ if __name__=='__main__':
     preprocessor = PreprocessPipeline(
         config_dict=config_dict, 
     )
+    preprocessor.begin_inference()
+    
     if (args.model == 'lgb') | (args.all_model):
         from src.model.lgbm.pipeline import LgbmPipeline
         
